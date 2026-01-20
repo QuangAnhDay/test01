@@ -22,7 +22,7 @@ WINDOW_WIDTH = 1200
 WINDOW_HEIGHT = 800
 CAMERA_INDEX = 0
 FIRST_PHOTO_DELAY = 10  # Giây cho ảnh đầu tiên
-BETWEEN_PHOTO_DELAY = 7  # Giây giữa các ảnh
+BETWEEN_PHOTO_DELAY = 1  # Giây giữa các ảnh (đặt 1 để test nhanh)
 PHOTOS_TO_TAKE = 10
 TEMPLATE_DIR = "templates"
 OUTPUT_DIR = "output"
@@ -404,7 +404,7 @@ class PhotoboothApp(QMainWindow):
         """)
 
         # --- STATE MANAGEMENT ---
-        self.state = "START"  # START, PRICE_SELECT, QR_PAYMENT, CAPTURING, PHOTO_SELECT, TEMPLATE_SELECT, CONFIRM, PRINTING
+        self.state = "START"  # START, PRICE_SELECT, LAYOUT_SELECT, QR_PAYMENT, CAPTURING, PHOTO_SELECT, TEMPLATE_SELECT, CONFIRM, PRINTING
         self.captured_photos = []
         self.selected_frame_count = 0  # 2 hoặc 4
         self.selected_photo_indices = []
@@ -414,6 +414,7 @@ class PhotoboothApp(QMainWindow):
         self.countdown_val = 0
         self.selected_price_type = 0  # 2 hoặc 4
         self.payment_confirmed = False
+        self.layout_type = ""  # "1x2", "2x1", "2x2", "4x1"
         
         # Ảnh mẫu cho gallery
         self.gallery_photos = load_sample_photos()
@@ -434,14 +435,15 @@ class PhotoboothApp(QMainWindow):
         self.stacked = QStackedWidget()
         self.main_layout.addWidget(self.stacked)
 
-        # Tạo các màn hình (bỏ màn hình chọn kiểu khung)
+        # Tạo các màn hình
         self.create_welcome_screen()      # Index 0 - Màn hình welcome mới
         self.create_price_select_screen() # Index 1 - Chọn giá tiền
         self.create_qr_payment_screen()   # Index 2 - Hiển thị QR
-        self.create_capture_screen()      # Index 3
-        self.create_photo_select_screen() # Index 4
-        self.create_template_select_screen() # Index 5
-        self.create_confirm_screen()      # Index 6
+        self.create_capture_screen()      # Index 3 - Chụp ảnh
+        self.create_layout_select_screen() # Index 4 - Chọn kiểu bố cục (sau khi chụp)
+        self.create_photo_select_screen() # Index 5 - Chọn ảnh
+        self.create_template_select_screen() # Index 6 - Chọn khung
+        self.create_confirm_screen()      # Index 7 - Xác nhận
 
         # --- TIMER ---
         self.camera_timer = QTimer()
@@ -668,6 +670,36 @@ class PhotoboothApp(QMainWindow):
         self.btn_back_price.setFixedSize(200, 60)
         self.btn_back_price.clicked.connect(self.reset_all)
         layout.addWidget(self.btn_back_price, alignment=Qt.AlignCenter)
+        
+        self.stacked.addWidget(screen)
+
+    def create_layout_select_screen(self):
+        """Màn hình chọn kiểu bố cục ảnh."""
+        screen = QWidget()
+        layout = QVBoxLayout(screen)
+        layout.setAlignment(Qt.AlignCenter)
+        layout.setSpacing(40)
+        layout.setContentsMargins(50, 50, 50, 50)
+        
+        # Title
+        self.layout_title = QLabel("🖼️ CHỌN KIỂU BỐ CỤC")
+        self.layout_title.setObjectName("TitleLabel")
+        self.layout_title.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.layout_title)
+        
+        self.layout_subtitle = QLabel("Đã chụp xong! Hãy chọn cách sắp xếp ảnh của bạn")
+        self.layout_subtitle.setObjectName("InfoLabel")
+        self.layout_subtitle.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.layout_subtitle)
+        
+        # Container cho các lựa chọn bố cục
+        self.layout_options_widget = QWidget()
+        self.layout_options_layout = QHBoxLayout(self.layout_options_widget)
+        self.layout_options_layout.setSpacing(60)
+        self.layout_options_layout.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.layout_options_widget)
+        
+        # Không có nút quay lại vì đã chụp ảnh xong
         
         self.stacked.addWidget(screen)
 
@@ -909,11 +941,7 @@ class PhotoboothApp(QMainWindow):
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(30)
         
-        self.btn_reject = QPushButton("CHỤP LẠI TỪ ĐẦU")
-        self.btn_reject.setObjectName("OrangeBtn")
-        self.btn_reject.setFixedSize(300, 80)
-        self.btn_reject.clicked.connect(self.reset_all)
-        btn_layout.addWidget(self.btn_reject)
+        # Đã bỏ nút "Chụp lại từ đầu" theo yêu cầu
         
         self.btn_accept = QPushButton("ĐỒNG Ý - IN ẢNH")
         self.btn_accept.setObjectName("GreenBtn")
@@ -955,6 +983,128 @@ class PhotoboothApp(QMainWindow):
         # Chuyển sang màn hình QR
         self.state = "QR_PAYMENT"
         self.stacked.setCurrentIndex(2)
+    
+    def go_to_layout_select(self):
+        """Chuyển sang màn hình chọn bố cục."""
+        self.state = "LAYOUT_SELECT"
+        
+        # Xóa các nút cũ
+        for i in reversed(range(self.layout_options_layout.count())):
+            widget = self.layout_options_layout.itemAt(i).widget()
+            if widget:
+                widget.deleteLater()
+        
+        # Tạo các nút bố cục dựa trên số ảnh đã chọn
+        if self.selected_frame_count == 2:
+            self.layout_title.setText("🖼️ CHỌN KIỂU BỐ CỤC CHO 2 ẢNH")
+            
+            # Option 1: 1 hàng 2 cột (ngang)
+            btn_1x2 = QPushButton("📷 📷\n\n1 HÀNG x 2 CỘT\n(Ngang)")
+            btn_1x2.setStyleSheet("""
+                QPushButton {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                        stop:0 #16213e, stop:1 #0f3460);
+                    border: 4px solid #4361ee;
+                    border-radius: 25px;
+                    padding: 30px;
+                    min-height: 200px;
+                    min-width: 300px;
+                    font-size: 24px;
+                    font-weight: bold;
+                    color: white;
+                }
+                QPushButton:hover { 
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                        stop:0 #0f3460, stop:1 #16213e);
+                    border-color: #06d6a0;
+                }
+            """)
+            btn_1x2.clicked.connect(lambda: self.select_layout("1x2"))
+            self.layout_options_layout.addWidget(btn_1x2)
+            
+            # Option 2: 2 hàng 1 cột (dọc)
+            btn_2x1 = QPushButton("📷\n📷\n\n2 HÀNG x 1 CỘT\n(Dọc)")
+            btn_2x1.setStyleSheet("""
+                QPushButton {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                        stop:0 #16213e, stop:1 #0f3460);
+                    border: 4px solid #e94560;
+                    border-radius: 25px;
+                    padding: 30px;
+                    min-height: 200px;
+                    min-width: 300px;
+                    font-size: 24px;
+                    font-weight: bold;
+                    color: white;
+                }
+                QPushButton:hover { 
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                        stop:0 #0f3460, stop:1 #16213e);
+                    border-color: #06d6a0;
+                }
+            """)
+            btn_2x1.clicked.connect(lambda: self.select_layout("2x1"))
+            self.layout_options_layout.addWidget(btn_2x1)
+            
+        elif self.selected_frame_count == 4:
+            self.layout_title.setText("🖼️ CHỌN KIỂU BỐ CỤC CHO 4 ẢNH")
+            
+            # Option 1: 2 hàng 2 cột (lưới vuông)
+            btn_2x2 = QPushButton("📷 📷\n📷 📷\n\n2 HÀNG x 2 CỘT\n(Lưới vuông)")
+            btn_2x2.setStyleSheet("""
+                QPushButton {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                        stop:0 #16213e, stop:1 #0f3460);
+                    border: 4px solid #4361ee;
+                    border-radius: 25px;
+                    padding: 30px;
+                    min-height: 200px;
+                    min-width: 300px;
+                    font-size: 24px;
+                    font-weight: bold;
+                    color: white;
+                }
+                QPushButton:hover { 
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                        stop:0 #0f3460, stop:1 #16213e);
+                    border-color: #06d6a0;
+                }
+            """)
+            btn_2x2.clicked.connect(lambda: self.select_layout("2x2"))
+            self.layout_options_layout.addWidget(btn_2x2)
+            
+            # Option 2: 4 hàng 1 cột (dọc dài)
+            btn_4x1 = QPushButton("📷\n📷\n📷\n📷\n\n4 HÀNG x 1 CỘT\n(Dọc dài)")
+            btn_4x1.setStyleSheet("""
+                QPushButton {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                        stop:0 #16213e, stop:1 #0f3460);
+                    border: 4px solid #e94560;
+                    border-radius: 25px;
+                    padding: 30px;
+                    min-height: 200px;
+                    min-width: 300px;
+                    font-size: 24px;
+                    font-weight: bold;
+                    color: white;
+                }
+                QPushButton:hover { 
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                        stop:0 #0f3460, stop:1 #16213e);
+                    border-color: #06d6a0;
+                }
+            """)
+            btn_4x1.clicked.connect(lambda: self.select_layout("4x1"))
+            self.layout_options_layout.addWidget(btn_4x1)
+        
+        self.stacked.setCurrentIndex(4)
+    
+    def select_layout(self, layout_type):
+        """Xử lý khi chọn kiểu bố cục."""
+        self.layout_type = layout_type
+        
+        # Chuyển sang màn hình chọn ảnh
+        self.go_to_photo_select()
 
     def confirm_payment(self):
         """Xác nhận đã thanh toán và bắt đầu chụp ảnh."""
@@ -962,12 +1112,23 @@ class PhotoboothApp(QMainWindow):
         self.start_capture_session()
 
     def load_templates(self):
-        """Load danh sách templates."""
+        """Load danh sách templates dựa trên kiểu bố cục đã chọn."""
         templates = []
-        if os.path.exists(TEMPLATE_DIR):
-            for f in os.listdir(TEMPLATE_DIR):
+        # Xác định thư mục template dựa trên bố cục
+        layout_folder = f"{self.selected_frame_count}_{self.layout_type}"
+        layout_template_dir = os.path.join(TEMPLATE_DIR, layout_folder)
+        
+        if os.path.exists(layout_template_dir):
+            for f in os.listdir(layout_template_dir):
                 if f.lower().endswith('.png'):
+                    templates.append(os.path.join(layout_template_dir, f))
+        
+        # Nếu không có template trong thư mục cụ thể, load từ thư mục chung
+        if not templates and os.path.exists(TEMPLATE_DIR):
+            for f in os.listdir(TEMPLATE_DIR):
+                if f.lower().endswith('.png') and os.path.isfile(os.path.join(TEMPLATE_DIR, f)):
                     templates.append(os.path.join(TEMPLATE_DIR, f))
+        
         return templates
 
     def update_camera_frame(self):
@@ -1029,8 +1190,8 @@ class PhotoboothApp(QMainWindow):
                 self.countdown_label.setText("✓")
                 self.status_label.setText("Hoàn thành!")
                 
-                # Chuyển thẳng sang chọn ảnh (bỏ qua chọn kiểu khung vì đã chọn trước)
-                QTimer.singleShot(1000, self.go_to_photo_select)
+                # Chuyển sang màn hình chọn kiểu bố cục
+                QTimer.singleShot(1000, self.go_to_layout_select)
 
     def go_to_photo_select(self):
         """Chuyển sang màn hình chọn ảnh."""
@@ -1078,7 +1239,7 @@ class PhotoboothApp(QMainWindow):
             self.photo_buttons.append(btn)
         
         self.btn_confirm_photos.setEnabled(False)
-        self.stacked.setCurrentIndex(4)
+        self.stacked.setCurrentIndex(5)
 
     def toggle_photo(self, index, button):
         """Xử lý chọn/bỏ chọn ảnh."""
@@ -1110,33 +1271,71 @@ class PhotoboothApp(QMainWindow):
         self.go_to_template_select()
 
     def create_collage(self, images):
-        """Tạo collage từ các ảnh đã chọn (chỉ 2 hoặc 4 ảnh)."""
-        canvas = np.zeros((720, 1280, 3), dtype=np.uint8)
+        """Tạo collage từ các ảnh đã chọn dựa trên kiểu bố cục."""
         count = len(images)
         
         if count == 2:
-            # 2 ảnh: đặt cạnh nhau
-            for i, img in enumerate(images):
-                h, w = img.shape[:2]
-                center_x = w // 2
-                start_x = max(0, center_x - 320)
-                end_x = min(w, start_x + 640)
-                cropped = img[0:min(h, 720), start_x:end_x]
-                cropped = cv2.resize(cropped, (640, 720))
-                canvas[0:720, i*640:(i+1)*640] = cropped
+            if self.layout_type == "1x2":
+                # 2 ảnh: 1 hàng 2 cột (ngang) - canvas 1280x720
+                canvas = np.zeros((720, 1280, 3), dtype=np.uint8)
+                for i, img in enumerate(images):
+                    h, w = img.shape[:2]
+                    center_x = w // 2
+                    start_x = max(0, center_x - 320)
+                    end_x = min(w, start_x + 640)
+                    cropped = img[0:min(h, 720), start_x:end_x]
+                    cropped = cv2.resize(cropped, (640, 720))
+                    canvas[0:720, i*640:(i+1)*640] = cropped
+            elif self.layout_type == "2x1":
+                # 2 ảnh: 2 hàng 1 cột (dọc) - giữ tỷ lệ 16:9
+                # Mỗi ảnh có kích thước 640x360 (tỷ lệ 16:9)
+                canvas = np.zeros((720, 640, 3), dtype=np.uint8)
+                for i, img in enumerate(images):
+                    resized = cv2.resize(img, (640, 360))
+                    canvas[i*360:(i+1)*360, 0:640] = resized
+            else:
+                # Mặc định 1x2
+                canvas = np.zeros((720, 1280, 3), dtype=np.uint8)
+                for i, img in enumerate(images):
+                    resized = cv2.resize(img, (640, 720))
+                    canvas[0:720, i*640:(i+1)*640] = resized
+                    
         elif count == 4:
-            # 4 ảnh: 2x2 grid
-            for i, img in enumerate(images):
-                resized = cv2.resize(img, (640, 360))
-                row = i // 2
-                col = i % 2
-                canvas[row*360:(row+1)*360, col*640:(col+1)*640] = resized
+            if self.layout_type == "2x2":
+                # 4 ảnh: 2 hàng 2 cột (lưới vuông) - canvas 1280x720
+                canvas = np.zeros((720, 1280, 3), dtype=np.uint8)
+                for i, img in enumerate(images):
+                    resized = cv2.resize(img, (640, 360))
+                    row = i // 2
+                    col = i % 2
+                    canvas[row*360:(row+1)*360, col*640:(col+1)*640] = resized
+            elif self.layout_type == "4x1":
+                # 4 ảnh: 4 hàng 1 cột (dọc dài) - giữ tỷ lệ 16:9
+                # Mỗi ảnh có kích thước 640x360 (tỷ lệ 16:9)
+                canvas = np.zeros((1440, 640, 3), dtype=np.uint8)
+                for i, img in enumerate(images):
+                    resized = cv2.resize(img, (640, 360))
+                    canvas[i*360:(i+1)*360, 0:640] = resized
+            else:
+                # Mặc định 2x2
+                canvas = np.zeros((720, 1280, 3), dtype=np.uint8)
+                for i, img in enumerate(images):
+                    resized = cv2.resize(img, (640, 360))
+                    row = i // 2
+                    col = i % 2
+                    canvas[row*360:(row+1)*360, col*640:(col+1)*640] = resized
+        else:
+            # Fallback cho các trường hợp khác
+            canvas = np.zeros((720, 1280, 3), dtype=np.uint8)
         
         return canvas
 
     def go_to_template_select(self):
         """Chuyển sang màn hình chọn template."""
         self.state = "TEMPLATE_SELECT"
+        
+        # Reload templates dựa trên bố cục đã chọn
+        self.templates = self.load_templates()
         
         # Hiển thị preview ban đầu
         self.update_template_preview()
@@ -1159,7 +1358,7 @@ class PhotoboothApp(QMainWindow):
             btn.clicked.connect(lambda checked, p=path: self.apply_template(p))
             self.template_btn_layout.addWidget(btn)
         
-        self.stacked.setCurrentIndex(5)
+        self.stacked.setCurrentIndex(6)
 
     def update_template_preview(self):
         """Cập nhật preview."""
@@ -1198,55 +1397,46 @@ class PhotoboothApp(QMainWindow):
             )
             self.final_preview_label.setPixmap(scaled)
         
-        self.stacked.setCurrentIndex(6)
+        self.stacked.setCurrentIndex(7)
 
     def accept_and_print(self):
-        """Đồng ý và tiến hành in ảnh."""
+        """Đồng ý và lưu ảnh (tạm thời không in vì chưa có máy in)."""
         if self.merged_image is None:
             return
         
-        # Kiểm tra máy in
-        printer_ok, printer_info = check_printer_available()
-        
-        if not printer_ok:
-            QMessageBox.warning(
-                self, 
-                "⚠️ MÁY IN CHƯA ĐƯỢC KẾT NỐI",
-                f"Không thể in ảnh!\n\nLý do: {printer_info}\n\n"
-                "Vui lòng kiểm tra kết nối máy in và thử lại."
-            )
-            return
+        # Tạo thư mục D:\picture nếu chưa có
+        output_folder = r"D:\picture"
+        os.makedirs(output_folder, exist_ok=True)
         
         # Lưu file
         timestamp = time.strftime("%Y%m%d-%H%M%S")
         filename = f"photo_{timestamp}.jpg"
-        filepath = os.path.join(OUTPUT_DIR, filename)
+        filepath = os.path.join(output_folder, filename)
         
-        cv2.imwrite(filepath, self.merged_image)
-        
-        # Cập nhật carousel với ảnh mới
-        self.gallery_photos = load_sample_photos()
-        self.load_carousel_photos()
-        
-        # In ảnh
         try:
-            os.startfile(filepath, "print")
+            cv2.imwrite(filepath, self.merged_image)
+            
+            # Cập nhật carousel với ảnh mới
+            self.gallery_photos = load_sample_photos()
+            self.load_carousel_photos()
+            
             QMessageBox.information(
                 self,
-                "✅ ĐANG IN ẢNH",
-                f"Ảnh đã được gửi đến máy in: {printer_info}\n\n"
-                f"File đã lưu: {filename}\n\n"
-                "Vui lòng chờ trong giây lát..."
+                "✅ ĐÃ LƯU ẢNH",
+                f"Ảnh đã được lưu thành công!\n\n"
+                f"📁 Thư mục: {output_folder}\n"
+                f"📄 File: {filename}\n\n"
+                "Cảm ơn bạn đã sử dụng Photobooth!"
             )
             
-            # Reset về màn hình bắt đầu sau khi in
-            QTimer.singleShot(3000, self.reset_all)
+            # Reset về màn hình bắt đầu
+            QTimer.singleShot(2000, self.reset_all)
             
         except Exception as e:
             QMessageBox.critical(
                 self,
-                "❌ LỖI IN ẢNH",
-                f"Không thể in ảnh: {str(e)}"
+                "❌ LỖI LƯU ẢNH",
+                f"Không thể lưu ảnh: {str(e)}"
             )
 
     def reset_all(self):
@@ -1259,6 +1449,7 @@ class PhotoboothApp(QMainWindow):
         self.merged_image = None
         self.payment_confirmed = False
         self.selected_price_type = 0
+        self.layout_type = ""
         
         # Về màn hình bắt đầu
         self.stacked.setCurrentIndex(0)
