@@ -2,9 +2,13 @@ import sys
 import os
 import cv2
 import time
+import json
+import random
+import string
 import subprocess
 import numpy as np
 import qrcode
+import requests
 from io import BytesIO
 from PIL import Image
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QLabel, 
@@ -19,37 +23,76 @@ import cloudinary
 import cloudinary.uploader
 
 # ==========================================
-# CẤU HÌNH CLOUDINARY (ĐIỀN THÔNG TIN CỦA BẠN)
-# ==========================================
-cloudinary.config(
-    cloud_name = "deqykfx3a",  # Điền cloud_name của bạn
-    api_key = "587184153751377",     # Điền api_key của bạn
-    api_secret = "BHPrRcilpavnO3-8wpvffc19W-s",  # Điền api_secret của bạn
-    secure = True
-)
-
-# ==========================================
 # CẤU HÌNH (CONFIGURATION)
 # ==========================================
+CONFIG_FILE = "config.json"
 WINDOW_TITLE = "Photobooth Cảm Ứng"
 WINDOW_WIDTH = 1200
 WINDOW_HEIGHT = 800
 CAMERA_INDEX = 0
 FIRST_PHOTO_DELAY = 10  # Giây cho ảnh đầu tiên
-BETWEEN_PHOTO_DELAY = 1  # Giây giữa các ảnh (đặt 1 để test nhanh)
+BETWEEN_PHOTO_DELAY = 1  # Giây giữa các ảnh
 PHOTOS_TO_TAKE = 10
 TEMPLATE_DIR = "templates"
 OUTPUT_DIR = "output"
 SAMPLE_PHOTOS_DIR = "sample_photos"
 
+# ==========================================
+# BIẾN TOÀN CỤC CHO CẤU HÌNH
+# ==========================================
+APP_CONFIG = {}
 
-# Cấu hình giá tiền
-PRICE_2_PHOTOS = "20.000 VNĐ"
-PRICE_4_PHOTOS = "35.000 VNĐ"
+def load_config():
+    """Tải cấu hình từ file config.json."""
+    global APP_CONFIG
+    if not os.path.exists(CONFIG_FILE):
+        return False
+    try:
+        with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+            APP_CONFIG = json.load(f)
+        
+        # Cấu hình Cloudinary từ config
+        cloud_config = APP_CONFIG.get('cloudinary', {})
+        if all([cloud_config.get('cloud_name'), cloud_config.get('api_key'), cloud_config.get('api_secret')]):
+            import cloudinary
+            cloudinary.config(
+                cloud_name=cloud_config.get('cloud_name'),
+                api_key=cloud_config.get('api_key'),
+                api_secret=cloud_config.get('api_secret'),
+                secure=True
+            )
+        return True
+    except Exception as e:
+        print(f"Lỗi đọc config: {e}")
+        return False
 
-# Thông tin thanh toán (ví dụ: số tài khoản, momo, etc.)
-PAYMENT_INFO = "MOMO: 0123456789 - NGUYEN VAN A"
-QR_CONTENT = "https://momosv3.apimienphi.com/api/QRCode?phone=0123456789&amount=20000&note=ThanhToanPhotobooth"
+def get_price_2():
+    """Lấy giá gói 2 ảnh từ config."""
+    return APP_CONFIG.get('price_2_photos', 20000)
+
+def get_price_4():
+    """Lấy giá gói 4 ảnh từ config."""
+    return APP_CONFIG.get('price_4_photos', 35000)
+
+def format_price(amount):
+    """Format số tiền thành chuỗi VNĐ."""
+    return f"{amount:,}".replace(",", ".") + " VNĐ"
+
+def generate_unique_code():
+    """Tạo mã giao dịch duy nhất: PB + 4 ký tự ngẫu nhiên."""
+    chars = string.ascii_uppercase + string.digits
+    return "PB" + ''.join(random.choices(chars, k=4))
+
+def generate_vietqr_url(amount, description):
+    """Tạo URL VietQR động từ config."""
+    bank_bin = APP_CONFIG.get('bank_bin', '')
+    account = APP_CONFIG.get('bank_account', '')
+    name = APP_CONFIG.get('account_name', '')
+    
+    # Format: https://img.vietqr.io/image/{bank_bin}-{account}-compact2.png?amount={amount}&addInfo={description}&accountName={name}
+    url = f"https://img.vietqr.io/image/{bank_bin}-{account}-compact2.png"
+    url += f"?amount={amount}&addInfo={description}&accountName={name}"
+    return url
 
 # ==========================================
 # HÀM HỖ TRỢ (HELPER FUNCTIONS)
@@ -231,6 +274,96 @@ class CloudinaryUploadThread(QThread):
         except Exception as e:
             # Emit lỗi
             self.upload_error.emit(str(e))
+
+
+# ==========================================
+# THREAD TẢI ẢNH QR TỪ VIETQR
+# ==========================================
+class QRImageLoaderThread(QThread):
+    """Thread tải ảnh QR từ VietQR API để không block UI."""
+    image_loaded = pyqtSignal(QPixmap)
+    load_error = pyqtSignal(str)
+    
+    def __init__(self, url):
+        super().__init__()
+        self.url = url
+    
+    def run(self):
+        try:
+            response = requests.get(self.url, timeout=15)
+            response.raise_for_status()
+            img_data = response.content
+            pixmap = QPixmap()
+            pixmap.loadFromData(img_data)
+            self.image_loaded.emit(pixmap)
+        except Exception as e:
+            self.load_error.emit(str(e))
+
+
+# ==========================================
+# THREAD KIỂM TRA GIAO DỊCH CASSO
+# ==========================================
+class CassoCheckThread(QThread):
+    """
+    Thread kiểm tra giao dịch từ Casso API mỗi 3 giây.
+    Khi tìm thấy giao dịch khớp số tiền và nội dung, phát signal.
+    """
+    payment_received = pyqtSignal()  # Signal khi nhận được tiền
+    check_error = pyqtSignal(str)    # Signal khi có lỗi
+    
+    def __init__(self, amount, description):
+        super().__init__()
+        self.amount = amount
+        self.description = description.upper()
+        self.running = True
+    
+    def stop(self):
+        """Dừng thread."""
+        self.running = False
+    
+    def run(self):
+        api_key = APP_CONFIG.get('casso_api_key', '')
+        if not api_key:
+            self.check_error.emit("Chưa cấu hình Casso API Key")
+            return
+        
+        headers = {
+            "Authorization": f"Apikey {api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        while self.running:
+            try:
+                # Gọi API Casso lấy danh sách giao dịch
+                response = requests.get(
+                    "https://oauth.casso.vn/v2/transactions",
+                    headers=headers,
+                    params={"pageSize": 20, "sort": "DESC"},
+                    timeout=10
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    transactions = data.get('data', {}).get('records', [])
+                    
+                    for trans in transactions:
+                        trans_amount = trans.get('amount', 0)
+                        trans_desc = trans.get('description', '').upper()
+                        
+                        # Kiểm tra khớp số tiền và nội dung chuyển khoản
+                        if trans_amount >= self.amount and self.description in trans_desc:
+                            self.payment_received.emit()
+                            return
+                
+                # Chờ 3 giây trước khi kiểm tra lại
+                for _ in range(30):  # 3 giây = 30 x 0.1s
+                    if not self.running:
+                        return
+                    time.sleep(0.1)
+                    
+            except Exception as e:
+                self.check_error.emit(str(e))
+                time.sleep(3)
 
 
 class DownloadQRDialog(QDialog):
@@ -621,6 +754,12 @@ class PhotoboothApp(QMainWindow):
         self.selected_price_type = 0  # 2 hoặc 4
         self.payment_confirmed = False
         self.layout_type = ""  # "1x2", "2x1", "2x2", "4x1"
+        
+        # Thread references
+        self.casso_thread = None
+        self.qr_loader_thread = None
+        self.current_transaction_code = ""
+        self.current_amount = 0
 
         
         # Ảnh mẫu cho gallery
@@ -871,24 +1010,25 @@ class PhotoboothApp(QMainWindow):
             }
         """
         
+        
         # === ROW 1: 2-PHOTO OPTIONS ===
-        btn_2x1 = QPushButton(f"📷\n📷\n\n2 HÀNG x 1 CỘT\n(2 Ảnh - Dọc)\n\n{PRICE_2_PHOTOS}")
+        btn_2x1 = QPushButton(f"📷\n📷\n\n2 HÀNG x 1 CỘT\n(2 Ảnh - Dọc)\n\n{format_price(get_price_2())}")
         btn_2x1.setStyleSheet(btn_style_2photo)
         btn_2x1.clicked.connect(lambda: self.select_layout_and_price(2, "2x1"))
         options_grid.addWidget(btn_2x1, 0, 0)
         
-        btn_1x2 = QPushButton(f"📷 📷\n\n1 HÀNG x 2 CỘT\n(2 Ảnh - Ngang)\n\n{PRICE_2_PHOTOS}")
+        btn_1x2 = QPushButton(f"📷 📷\n\n1 HÀNG x 2 CỘT\n(2 Ảnh - Ngang)\n\n{format_price(get_price_2())}")
         btn_1x2.setStyleSheet(btn_style_2photo)
         btn_1x2.clicked.connect(lambda: self.select_layout_and_price(2, "1x2"))
         options_grid.addWidget(btn_1x2, 0, 1)
         
         # === ROW 2: 4-PHOTO OPTIONS ===
-        btn_4x1 = QPushButton(f"📷\n📷\n📷\n📷\n\n4 HÀNG x 1 CỘT\n(4 Ảnh - Dọc)\n\n{PRICE_4_PHOTOS}")
+        btn_4x1 = QPushButton(f"📷\n📷\n📷\n📷\n\n4 HÀNG x 1 CỘT\n(4 Ảnh - Dọc)\n\n{format_price(get_price_4())}")
         btn_4x1.setStyleSheet(btn_style_4photo)
         btn_4x1.clicked.connect(lambda: self.select_layout_and_price(4, "4x1"))
         options_grid.addWidget(btn_4x1, 1, 0)
         
-        btn_2x2 = QPushButton(f"📷 📷\n📷 📷\n\n2 HÀNG x 2 CỘT\n(4 Ảnh - Lưới)\n\n{PRICE_4_PHOTOS}")
+        btn_2x2 = QPushButton(f"📷 📷\n📷 📷\n\n2 HÀNG x 2 CỘT\n(4 Ảnh - Lưới)\n\n{format_price(get_price_4())}")
         btn_2x2.setStyleSheet(btn_style_4photo)
         btn_2x2.clicked.connect(lambda: self.select_layout_and_price(4, "2x2"))
         options_grid.addWidget(btn_2x2, 1, 1)
@@ -935,11 +1075,11 @@ class PhotoboothApp(QMainWindow):
         self.stacked.addWidget(screen)
 
     def create_qr_payment_screen(self):
-        """Màn hình hiển thị mã QR để thanh toán."""
+        """Màn hình hiển thị mã QR thanh toán VietQR với kiểm tra Casso tự động."""
         screen = QWidget()
         layout = QVBoxLayout(screen)
         layout.setAlignment(Qt.AlignCenter)
-        layout.setSpacing(30)
+        layout.setSpacing(20)
         layout.setContentsMargins(50, 30, 50, 30)
         
         # Title
@@ -954,68 +1094,47 @@ class PhotoboothApp(QMainWindow):
         self.selected_package_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.selected_package_label)
         
-        # QR Code container
+        # Mã giao dịch
+        self.transaction_code_label = QLabel()
+        self.transaction_code_label.setAlignment(Qt.AlignCenter)
+        self.transaction_code_label.setStyleSheet("font-size: 20px; color: #ffd700; font-weight: bold;")
+        layout.addWidget(self.transaction_code_label)
+        
+        # QR container
         qr_container = QWidget()
-        qr_container.setStyleSheet("""
-            background-color: white;
-            border-radius: 25px;
-            padding: 30px;
-        """)
-        qr_container.setFixedSize(400, 400)
+        qr_container.setStyleSheet("background-color: white; border-radius: 25px;")
+        qr_container.setFixedSize(380, 380)
         qr_layout = QVBoxLayout(qr_container)
         qr_layout.setAlignment(Qt.AlignCenter)
         
-        self.qr_label = QLabel()
+        self.qr_label = QLabel("⏳ Đang tải...")
         self.qr_label.setAlignment(Qt.AlignCenter)
-        self.qr_label.setFixedSize(320, 320)
+        self.qr_label.setFixedSize(350, 350)
+        self.qr_label.setStyleSheet("font-size: 24px; color: #333; background-color: white;")
         qr_layout.addWidget(self.qr_label)
-        
         layout.addWidget(qr_container, alignment=Qt.AlignCenter)
         
-        # Payment info
-        payment_info_label = QLabel(PAYMENT_INFO)
-        payment_info_label.setObjectName("InfoLabel")
-        payment_info_label.setAlignment(Qt.AlignCenter)
-        payment_info_label.setStyleSheet("color: #ffd700; font-size: 20px;")
-        layout.addWidget(payment_info_label)
+        # Thông tin tài khoản
+        self.bank_info_label = QLabel()
+        self.bank_info_label.setAlignment(Qt.AlignCenter)
+        self.bank_info_label.setStyleSheet("font-size: 16px; color: #a8dadc;")
+        layout.addWidget(self.bank_info_label)
         
-        # Hướng dẫn
-        instruction = QLabel("Sau khi thanh toán, nhấn nút bên dưới để tiếp tục")
-        instruction.setAlignment(Qt.AlignCenter)
-        instruction.setStyleSheet("color: #a8dadc; font-size: 18px;")
-        layout.addWidget(instruction)
+        # Trạng thái kiểm tra Casso
+        self.payment_status_label = QLabel("🔄 Đang chờ thanh toán...")
+        self.payment_status_label.setAlignment(Qt.AlignCenter)
+        self.payment_status_label.setStyleSheet("font-size: 18px; color: #ffd700;")
+        layout.addWidget(self.payment_status_label)
         
         # Buttons
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(30)
         
-        self.btn_back_qr = QPushButton("⬅️ QUAY LẠI")
+        self.btn_back_qr = QPushButton("⬅️ HỦY VÀ QUAY LẠI")
         self.btn_back_qr.setObjectName("OrangeBtn")
-        self.btn_back_qr.setFixedSize(200, 70)
-        self.btn_back_qr.clicked.connect(self.go_to_price_select)
+        self.btn_back_qr.setFixedSize(250, 60)
+        self.btn_back_qr.clicked.connect(self.cancel_payment_and_go_back)
         btn_layout.addWidget(self.btn_back_qr)
-        
-        self.btn_payment_done = QPushButton("✅ ĐÃ THANH TOÁN")
-        self.btn_payment_done.setObjectName("GreenBtn")
-        self.btn_payment_done.setFixedSize(300, 70)
-        self.btn_payment_done.setStyleSheet("""
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                    stop:0 #06d6a0, stop:1 #00f5d4);
-                color: #1a1a2e;
-                border: none;
-                border-radius: 15px;
-                padding: 20px 40px;
-                font-size: 24px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                    stop:0 #00f5d4, stop:1 #06d6a0);
-            }
-        """)
-        self.btn_payment_done.clicked.connect(self.confirm_payment)
-        btn_layout.addWidget(self.btn_payment_done)
         
         layout.addLayout(btn_layout)
         
@@ -2024,6 +2143,109 @@ class PhotoboothApp(QMainWindow):
         
         # Về màn hình bắt đầu
         self.stacked.setCurrentIndex(0)
+    
+    # ==========================================
+    # LOGIC THANH TOÁN CASSO
+    # ==========================================
+    
+    def select_layout_and_price(self, photo_count, layout_type):
+        """Xử lý khi chọn gói (layout + giá) - Hiển thị QR và bắt đầu check Casso."""
+        self.selected_price_type = photo_count
+        self.selected_frame_count = photo_count
+        self.layout_type = layout_type
+        
+        # Tạo mã giao dịch duy nhất
+        self.current_transaction_code = generate_unique_code()
+        self.current_amount = get_price_2() if photo_count == 2 else get_price_4()
+        
+        # Cập nhật UI
+        layout_name = {
+            "2x1": "2 Hàng x 1 Cột", "1x2": "1 Hàng x 2 Cột",
+            "4x1": "4 Hàng x 1 Cột", "2x2": "2 Hàng x 2 Cột"
+        }.get(layout_type, layout_type)
+        
+        self.selected_package_label.setText(f"📦 {layout_name} - {photo_count} ẢNH - {format_price(self.current_amount)}")
+        self.transaction_code_label.setText(f"Nội dung CK: {self.current_transaction_code}")
+        self.bank_info_label.setText(f"{APP_CONFIG.get('bank_name', '')} - {APP_CONFIG.get('bank_account', '')}")
+        self.payment_status_label.setText("🔄 Đang chờ thanh toán...")
+        self.payment_status_label.setStyleSheet("font-size: 18px; color: #ffd700;")
+        
+        # Tải QR Image từ VietQR (async)
+        self.qr_label.setText("⏳ Đang tải mã QR...")
+        qr_url = generate_vietqr_url(self.current_amount, self.current_transaction_code)
+        self.qr_loader_thread = QRImageLoaderThread(qr_url)
+        self.qr_loader_thread.image_loaded.connect(self.on_qr_image_loaded)
+        self.qr_loader_thread.load_error.connect(self.on_qr_load_error)
+        self.qr_loader_thread.start()
+        
+        # Bắt đầu kiểm tra Casso
+        self.start_casso_check()
+        
+        self.state = "QR_PAYMENT"
+        self.stacked.setCurrentIndex(2)
+    
+    def on_qr_image_loaded(self, pixmap):
+        """Khi tải xong ảnh QR từ VietQR."""
+        scaled = pixmap.scaled(350, 350, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        self.qr_label.setPixmap(scaled)
+    
+    def on_qr_load_error(self, error):
+        """Khi lỗi tải QR, fallback sang QR tự tạo."""
+        self.qr_label.setText(f"❌ Lỗi tải QR\n{error[:30]}...")
+        # Fallback: tạo QR từ thông tin
+        content = f"{APP_CONFIG.get('bank_account', '')} - {self.current_amount} - {self.current_transaction_code}"
+        pixmap = generate_qr_code(content, 300)
+        self.qr_label.setPixmap(pixmap)
+    
+    def start_casso_check(self):
+        """Bắt đầu thread kiểm tra thanh toán Casso."""
+        if hasattr(self, 'casso_thread') and self.casso_thread and self.casso_thread.isRunning():
+            self.casso_thread.stop()
+            self.casso_thread.wait()
+        
+        self.casso_thread = CassoCheckThread(self.current_amount, self.current_transaction_code)
+        self.casso_thread.payment_received.connect(self.on_payment_received)
+        self.casso_thread.check_error.connect(self.on_casso_error)
+        self.casso_thread.start()
+    
+    def on_payment_received(self):
+        """Khi nhận được thanh toán thành công từ Casso."""
+        self.payment_status_label.setText("✅ ĐÃ NHẬN THANH TOÁN!")
+        self.payment_status_label.setStyleSheet("font-size: 24px; color: #06d6a0; font-weight: bold;")
+        
+        # Dừng casso thread
+        if self.casso_thread and self.casso_thread.isRunning():
+            self.casso_thread.stop()
+        
+        # Chuyển sang màn hình chụp ảnh sau 1.5 giây
+        QTimer.singleShot(1500, self.go_to_capture_screen)
+    
+    def on_casso_error(self, error):
+        """Xử lý lỗi Casso."""
+        self.payment_status_label.setText(f"⚠️ Lỗi: {error[:50]}...")
+        self.payment_status_label.setStyleSheet("font-size: 16px; color: #ff6b6b;")
+    
+    def cancel_payment_and_go_back(self):
+        """Hủy thanh toán và quay lại chọn gói."""
+        if hasattr(self, 'casso_thread') and self.casso_thread and self.casso_thread.isRunning():
+            self.casso_thread.stop()
+            self.casso_thread.wait()
+        if hasattr(self, 'qr_loader_thread') and self.qr_loader_thread and self.qr_loader_thread.isRunning():
+            self.qr_loader_thread.wait()
+        
+        self.stacked.setCurrentIndex(1)  # Quay lại price select
+    
+    def go_to_capture_screen(self):
+        """Chuyển sang màn hình chụp ảnh."""
+        self.state = "WAITING_CAPTURE"
+        self.captured_photos = []
+        self.selected_photo_indices = []
+        self.stacked.setCurrentIndex(3)
+        self.photo_count_label.setText(f"Ảnh: 0/{PHOTOS_TO_TAKE}")
+        self.status_label.setText("Sẵn sàng?")
+        self.countdown_label.setText("")
+        self.btn_capture_start.show()
+
 
     def closeEvent(self, event):
         """Cleanup khi đóng app."""
@@ -2035,11 +2257,30 @@ class PhotoboothApp(QMainWindow):
             self.carousel1.scroll_timer.stop()
         if hasattr(self, 'carousel2'):
             self.carousel2.scroll_timer.stop()
+        
+        # Dừng Casso thread nếu đang chạy
+        if hasattr(self, 'casso_thread') and self.casso_thread and self.casso_thread.isRunning():
+            self.casso_thread.stop()
+            self.casso_thread.wait()
+        
         self.cap.release()
         event.accept()
 
 
+
+
 if __name__ == "__main__":
+    # Kiểm tra config.json
+    if not load_config():
+        app = QApplication(sys.argv)
+        QMessageBox.critical(
+            None,
+            "❌ Thiếu cấu hình",
+            "Không tìm thấy file config.json!\n\n"
+            "Vui lòng chạy setup_admin.py trước để tạo cấu hình."
+        )
+        sys.exit(1)
+    
     ensure_directories()
     app = QApplication(sys.argv)
     
@@ -2051,3 +2292,4 @@ if __name__ == "__main__":
     window = PhotoboothApp()
     window.show()
     sys.exit(app.exec_())
+

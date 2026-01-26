@@ -8,6 +8,9 @@ env/
 venv/
 .venv/
 
+# FILE CẤU HÌNH (Chứa mật khẩu - KHÔNG UPLOAD)
+config.json
+
 # Output files (user-generated photos)
 output/
 

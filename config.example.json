@@ -1,0 +1,14 @@
+{
+    "bank_bin": "970415",
+    "bank_name": "VietinBank - Ngân hàng TMCP Công thương Việt Nam",
+    "bank_account": "NHAP_SO_TAI_KHOAN_VAO_DAY",
+    "account_name": "NHAP_TEN_CHU_TK_VAO_DAY",
+    "casso_api_key": "NHAP_API_KEY_CASSO_VAO_DAY",
+    "price_2_photos": 20000,
+    "price_4_photos": 35000,
+    "cloudinary": {
+        "cloud_name": "NHAP_CLOUD_NAME",
+        "api_key": "NHAP_API_KEY",
+        "api_secret": "NHAP_API_SECRET"
+    }
+}

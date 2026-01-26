@@ -1,79 +1,361 @@
-﻿# HÆ¯á»šNG DáºªN Sá»¬ Dá»¤NG PHOTOBOOTH
+﻿# 📸 HƯỚNG DẪN SỬ DỤNG PHOTOBOOTH
 
-## 1. CÃ i Ä‘áº·t mÃ´i trÆ°á»ng
+## 📋 MỤC LỤC
+1. [Cài đặt môi trường](#1-cài-đặt-môi-trường)
+2. [Cấu hình hệ thống](#2-cấu-hình-hệ-thống)
+3. [Chạy ứng dụng](#3-chạy-ứng-dụng)
+4. [Quy trình sử dụng](#4-quy-trình-sử-dụng)
+5. [Quản lý khung ảnh](#5-quản-lý-khung-ảnh)
+6. [Lỗi thường gặp](#6-lỗi-thường-gặp)
 
-### BÆ°á»›c 1: CÃ i Ä‘áº·t Python
-- Táº£i Python tá»«: https://www.python.org/downloads/
-- CÃ i Ä‘áº·t vÃ  tick chá»n "Add Python to PATH"
+---
 
-### BÆ°á»›c 2: CÃ i Ä‘áº·t thÆ° viá»‡n
-Má»Ÿ Command Prompt hoáº·c PowerShell vÃ  cháº¡y:
-```
-pip install PyQt5 opencv-python numpy qrcode pillow
-```
+## 1. CÀI ĐẶT MÔI TRƯỜNG
 
-## 2. Cáº¥u hÃ¬nh
+### Bước 1: Cài đặt Python
+1. Tải Python từ: https://www.python.org/downloads/
+2. Chọn phiên bản **Python 3.8 trở lên**
+3. Khi cài đặt, **BẮT BUỘC** tick chọn:
+   - ✅ **"Add Python to PATH"**
+   - ✅ **"Install pip"**
 
-Má»Ÿ file `photobooth.py` vÃ  chá»‰nh sá»­a cÃ¡c thÃ´ng sá»‘ sau (dÃ²ng 20-37):
+### Bước 2: Cài đặt thư viện
+Mở **Command Prompt** hoặc **PowerShell** và chạy:
 
-```python
-WINDOW_TITLE = "Photobooth Cáº£m á»¨ng"   # TiÃªu Ä‘á» cá»­a sá»•
-WINDOW_WIDTH = 1200                    # Chiá»u rá»™ng
-WINDOW_HEIGHT = 800                    # Chiá»u cao
-CAMERA_INDEX = 0                       # Camera (0 = webcam máº·c Ä‘á»‹nh)
-FIRST_PHOTO_DELAY = 10                 # GiÃ¢y Ä‘áº¿m ngÆ°á»£c áº£nh Ä‘áº§u tiÃªn
-BETWEEN_PHOTO_DELAY = 7                # GiÃ¢y giá»¯a cÃ¡c áº£nh
-
-# GiÃ¡ tiá»n
-PRICE_2_PHOTOS = "20.000 VNÄ"
-PRICE_4_PHOTOS = "35.000 VNÄ"
-
-# ThÃ´ng tin thanh toÃ¡n MoMo
-PAYMENT_INFO = "MOMO: 0123456789 - NGUYEN VAN A"
-```
-
-## 3. Cháº¡y á»©ng dá»¥ng
-
-```
+```bash
 cd D:\photobooth1
-python photobooth.py
+pip install -r requirements.txt
 ```
 
-## 4. Quy trÃ¬nh sá»­ dá»¥ng
+Hoặc cài thủ công:
+```bash
+pip install PyQt5 opencv-python numpy qrcode pillow requests cloudinary
+```
 
-1. **MÃ n hÃ¬nh chÃ o má»«ng** â†’ Nháº¥n "Báº®T Äáº¦U CHá»¤P"
-2. **Chá»n gÃ³i** â†’ 2 áº£nh (20k) hoáº·c 4 áº£nh (35k)
-3. **Thanh toÃ¡n** â†’ QuÃ©t mÃ£ QR MoMo â†’ Nháº¥n "ÄÃƒ THANH TOÃN"
-4. **Chá»¥p áº£nh** â†’ Äáº¿m ngÆ°á»£c 10s â†’ Chá»¥p 10 áº£nh liÃªn tiáº¿p
-5. **Chá»n áº£nh** â†’ Chá»n 2 hoáº·c 4 áº£nh yÃªu thÃ­ch
-6. **Chá»n khung** â†’ Chá»n khung viá»n trang trÃ­
-7. **XÃ¡c nháº­n** â†’ In áº£nh
+### Bước 3: Kiểm tra cài đặt
+```bash
+python -c "import PyQt5, cv2, qrcode, requests; print('OK!')"
+```
 
-## 5. ThÃªm khung viá»n má»›i
+Nếu thấy `OK!` là thành công.
 
-1. Táº¡o file PNG vá»›i kÃ­ch thÆ°á»›c 1280x720 pixel
-2. Pháº§n muá»‘n trong suá»‘t pháº£i cÃ³ alpha = 0
-3. Äáº·t file vÃ o thÆ° má»¥c `templates/`
+---
 
-## 6. ThÃªm áº£nh máº«u cho carousel
+## 2. CẤU HÌNH HỆ THỐNG
 
-1. Äáº·t áº£nh JPG/PNG vÃ o thÆ° má»¥c `sample_photos/`
-2. áº¢nh sáº½ tá»± Ä‘á»™ng hiá»ƒn thá»‹ trÃªn mÃ n hÃ¬nh chÃ o má»«ng
+### ⚙️ Bước 1: Chạy Setup Admin
 
-## 7. Káº¿t ná»‘i mÃ¡y in
+**QUAN TRỌNG**: Phải chạy setup trước khi dùng app chính!
 
-- Äáº£m báº£o mÃ¡y in Ä‘Ã£ Ä‘Æ°á»£c cÃ i driver vÃ  káº¿t ná»‘i
-- á»¨ng dá»¥ng sáº½ tá»± Ä‘á»™ng phÃ¡t hiá»‡n vÃ  in qua mÃ¡y in máº·c Ä‘á»‹nh
+```bash
+cd D:\photobooth1
+python setup_admin.py
+```
 
-## 8. Lá»—i thÆ°á»ng gáº·p
+### 📝 Bước 2: Điền thông tin
 
-### Lá»—i: "KhÃ´ng tÃ¬m tháº¥y camera"
-- Kiá»ƒm tra camera Ä‘Ã£ káº¿t ná»‘i
-- Thá»­ Ä‘á»•i CAMERA_INDEX = 1 hoáº·c 2
+Giao diện setup sẽ yêu cầu bạn nhập:
 
-### Lá»—i font chá»¯
-- File Ä‘Ã£ Ä‘Æ°á»£c cáº¥u hÃ¬nh font Arial/Tahoma há»— trá»£ tiáº¿ng Viá»‡t
+#### 🏦 **Thông tin ngân hàng:**
+- **Ngân hàng**: Chọn từ danh sách (VietQR tự động tải)
+- **Số tài khoản**: Số tài khoản nhận tiền
+- **Tên chủ TK**: Tên không dấu (VD: NGUYEN VAN A)
 
-### Lá»—i: "KhÃ´ng tÃ¬m tháº¥y mÃ¡y in"
-- Kiá»ƒm tra mÃ¡y in Ä‘Ã£ báº­t vÃ  káº¿t ná»‘i
-- Cháº¡y `Get-Printer` trong PowerShell Ä‘á»ƒ kiá»ƒm tra
+#### 🔐 **Casso API Key:**
+1. Truy cập: https://casso.vn
+2. Đăng ký/Đăng nhập
+3. Vào **Cài đặt** → **API Keys**
+4. Tạo API Key mới
+5. Copy và dán vào ô "Casso API Key"
+
+> 💡 **Lưu ý**: Casso API dùng để tự động kiểm tra thanh toán. Nếu không có, khách phải nhấn nút "Đã thanh toán" thủ công.
+
+#### 💰 **Giá tiền:**
+- **Gói 2 ảnh**: Nhập giá (VD: 20000)
+- **Gói 4 ảnh**: Nhập giá (VD: 35000)
+
+#### ☁️ **Cloudinary (Tùy chọn):**
+Nếu muốn khách tải ảnh về điện thoại qua QR:
+1. Đăng ký miễn phí tại: https://cloudinary.com
+2. Lấy thông tin:
+   - Cloud Name
+   - API Key
+   - API Secret
+3. Điền vào form
+
+> 💡 **Bỏ qua** nếu chỉ muốn in ảnh, không cần tải về điện thoại.
+
+### 💾 Bước 3: Lưu cấu hình
+
+Nhấn **"💾 LƯU CẤU HÌNH"**
+
+File `config.json` sẽ được tạo tự động.
+
+---
+
+## 3. CHẠY ỨNG DỤNG
+
+### 🚀 Khởi động
+
+```bash
+cd D:\photobooth1
+python main_app.py
+```
+
+### 🖥️ Chế độ toàn màn hình (khuyến nghị)
+
+Nhấn **F11** hoặc sửa code:
+```python
+window.showFullScreen()  # Thay vì window.show()
+```
+
+### 🔄 Khởi động lại
+
+Nếu sửa config, cần khởi động lại app:
+- Đóng app (Alt+F4)
+- Chạy lại `python main_app.py`
+
+---
+
+## 4. QUY TRÌNH SỬ DỤNG
+
+### 📱 Luồng hoạt động đầy đủ:
+
+```
+1. MÀN HÌNH CHÀO
+   ↓ Nhấn "🎬 BẮT ĐẦU CHỤP"
+   
+2. CHỌN KIỂU LƯỚI ẢNH
+   ├─ 2 Hàng x 1 Cột (2 ảnh dọc)    → 20.000 VNĐ
+   ├─ 1 Hàng x 2 Cột (2 ảnh ngang)  → 20.000 VNĐ
+   ├─ 4 Hàng x 1 Cột (4 ảnh dọc)    → 35.000 VNĐ
+   └─ 2 Hàng x 2 Cột (4 ảnh lưới)   → 35.000 VNĐ
+   ↓
+   
+3. THANH TOÁN QR
+   ├─ Hiển thị QR VietQR động
+   ├─ Mã giao dịch: PBxxxx
+   ├─ Khách quét QR → Chuyển khoản
+   └─ Hệ thống tự động kiểm tra qua Casso (mỗi 3 giây)
+   ↓ Khi nhận tiền
+   
+4. CHỤP ẢNH
+   ├─ Đếm ngược 10 giây (ảnh đầu)
+   ├─ Chụp 10 ảnh liên tục (mỗi ảnh cách 1 giây)
+   └─ Hiển thị số ảnh đã chụp
+   ↓
+   
+5. CHỌN ẢNH
+   ├─ Hiển thị 10 ảnh vừa chụp
+   ├─ Chọn 2 hoặc 4 ảnh yêu thích (tùy gói)
+   ├─ Thời gian: 60s (gói 2) hoặc 120s (gói 4)
+   └─ Nhấn "XÁC NHẬN CHỌN ẢNH"
+   ↓
+   
+6. CHỌN KHUNG VIỀN
+   ├─ Xem preview ảnh thành quả
+   ├─ Chọn khung trang trí
+   ├─ Hoặc "KHÔNG DÙNG KHUNG"
+   └─ Thời gian: 60 giây
+   ↓
+   
+7. LƯU ẢNH
+   ├─ Ảnh được lưu tại: D:\picture\
+   ├─ Tên file: photo_YYYYMMDD-HHMMSS.jpg
+   └─ Hiển thị QR để tải về điện thoại (nếu có Cloudinary)
+   ↓
+   
+8. QUAY LẠI MÀN HÌNH CHÀO
+```
+
+---
+
+## 5. QUẢN LÝ KHUNG ẢNH
+
+### 📂 Cấu trúc thư mục
+
+```
+templates/
+├── 2_1x2/          # Khung cho layout 1x2 (1280x720)
+│   ├── frame_blue.png
+│   ├── frame_gold.png
+│   └── ...
+├── 2_2x1/          # Khung cho layout 2x1 (640x720)
+├── 4_2x2/          # Khung cho layout 2x2 (1280x720)
+└── 4_4x1/          # Khung cho layout 4x1 (640x1440)
+```
+
+### ➕ Thêm khung mới
+
+1. **Thiết kế khung** theo hướng dẫn trong `HUONG_DAN_THIET_KE_KHUNG.md`
+2. **Export PNG** với alpha channel
+3. **Đặt tên**: `ten_khung.png` (không dấu, không khoảng trắng)
+4. **Copy vào thư mục** tương ứng với layout
+5. **Khởi động lại app** để load khung mới
+
+### 🗑️ Xóa khung
+
+Xóa file PNG trong thư mục `templates/[layout]/`
+
+### 📏 Kích thước khung
+
+Xem chi tiết trong file: `KICH_THUOC_ANH.md`
+
+---
+
+## 6. LỖI THƯỜNG GẶP
+
+### ❌ Lỗi: "Không tìm thấy file config.json"
+
+**Nguyên nhân**: Chưa chạy setup_admin.py
+
+**Giải pháp**:
+```bash
+python setup_admin.py
+```
+
+---
+
+### ❌ Lỗi: "Không tìm thấy camera"
+
+**Nguyên nhân**: 
+- Camera chưa kết nối
+- Đang được dùng bởi app khác
+- Index camera sai
+
+**Giải pháp**:
+1. Kiểm tra camera đã cắm
+2. Đóng Zoom/Skype/Teams
+3. Thử đổi `CAMERA_INDEX`:
+   ```python
+   # Trong main_app.py, dòng ~37
+   CAMERA_INDEX = 0  # Thử đổi thành 1, 2, 3...
+   ```
+
+---
+
+### ❌ Lỗi: "Casso API Key không hợp lệ"
+
+**Nguyên nhân**: API key sai hoặc hết hạn
+
+**Giải pháp**:
+1. Vào https://casso.vn
+2. Tạo API key mới
+3. Chạy lại `python setup_admin.py`
+4. Nhập API key mới
+
+---
+
+### ❌ Lỗi: "Không tải được QR từ VietQR"
+
+**Nguyên nhân**: Không có internet hoặc VietQR API lỗi
+
+**Giải pháp**:
+- App sẽ tự động dùng QR backup (tự tạo)
+- Kiểm tra kết nối mạng
+- QR backup vẫn hoạt động bình thường
+
+---
+
+### ❌ Lỗi: Font chữ bị lỗi
+
+**Nguyên nhân**: Windows thiếu font tiếng Việt
+
+**Giải pháp**:
+- App đã dùng Arial/Segoe UI (có sẵn trên Windows)
+- Nếu vẫn lỗi, cài font "Arial Unicode MS"
+
+---
+
+### ❌ Lỗi: "Không tìm thấy máy in"
+
+**Nguyên nhân**: Máy in chưa kết nối hoặc chưa cài driver
+
+**Giải pháp**:
+1. Kiểm tra máy in đã bật
+2. Kiểm tra driver đã cài
+3. Test in thử:
+   ```powershell
+   Get-Printer
+   ```
+
+---
+
+### ❌ Lỗi: Ảnh bị méo/vỡ
+
+**Nguyên nhân**: Khung không đúng kích thước
+
+**Giải pháp**:
+1. Kiểm tra kích thước khung:
+   ```bash
+   python -c "from PIL import Image; print(Image.open('templates/2_1x2/frame.png').size)"
+   ```
+2. Phải khớp với layout:
+   - 1x2: 1280x720
+   - 2x1: 640x720
+   - 2x2: 1280x720
+   - 4x1: 640x1440
+
+---
+
+### ❌ Lỗi: Cloudinary upload failed
+
+**Nguyên nhân**: 
+- Chưa cài thư viện cloudinary
+- Thông tin Cloudinary sai
+- Không có internet
+
+**Giải pháp**:
+1. Cài thư viện:
+   ```bash
+   pip install cloudinary
+   ```
+2. Kiểm tra config trong `config.json`
+3. Nếu không cần upload cloud, bỏ qua lỗi này
+
+---
+
+## 📞 HỖ TRỢ
+
+### 📚 Tài liệu tham khảo:
+- `README_KICH_THUOC.md` - Kích thước ảnh
+- `KICH_THUOC_ANH.md` - Chi tiết kỹ thuật
+- `HUONG_DAN_THIET_KE_KHUNG.md` - Hướng dẫn thiết kế
+
+### 🔧 Debug:
+```bash
+# Kiểm tra Python
+python --version
+
+# Kiểm tra thư viện
+pip list
+
+# Test camera
+python -c "import cv2; cap = cv2.VideoCapture(0); print('OK' if cap.isOpened() else 'FAIL')"
+
+# Test config
+python -c "import json; print(json.load(open('config.json')))"
+```
+
+---
+
+## 🎯 TIPS SỬ DỤNG
+
+### ⚡ Tối ưu hiệu suất:
+- Đóng các app không cần thiết
+- Dùng camera USB chất lượng tốt
+- Đảm bảo đủ ánh sáng
+
+### 🎨 Thiết kế đẹp:
+- Dùng khung đơn giản, không quá rườm rà
+- Để margin 40-50px tránh che mặt
+- Test với ảnh thật trước khi dùng
+
+### 💰 Quản lý thanh toán:
+- Kiểm tra Casso mỗi ngày
+- Đối chiếu số tiền với số lượt chụp
+- Backup file config.json
+
+---
+
+**Chúc bạn sử dụng thành công!** 🎉📸
