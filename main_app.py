@@ -1,627 +1,40 @@
+# ==========================================
+# IMPORTS
+# ==========================================
 import sys
 import os
 import cv2
 import time
-import json
-import random
-import string
-import subprocess
 import numpy as np
-import qrcode
-import requests
-from io import BytesIO
+from datetime import datetime
 from PIL import Image
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QLabel, 
                              QPushButton, QVBoxLayout, QHBoxLayout, QScrollArea, 
                              QMessageBox, QFrame, QGridLayout, QStackedWidget,
                              QGraphicsOpacityEffect, QDialog, QSlider, QGroupBox)
-from PyQt5.QtCore import Qt, QTimer, QSize, QPropertyAnimation, QPoint, QEasingCurve, QSequentialAnimationGroup, QParallelAnimationGroup, QThread, pyqtSignal
+from PyQt5.QtCore import Qt, QTimer, QSize, QPropertyAnimation, QPoint, QEasingCurve, QSequentialAnimationGroup, QParallelAnimationGroup
 from PyQt5.QtGui import QImage, QPixmap, QFont, QIcon
 
-# Cloudinary upload
-import cloudinary
-import cloudinary.uploader
-
-# ==========================================
-# CẤU HÌNH (CONFIGURATION)
-# ==========================================
-CONFIG_FILE = "config.json"
-WINDOW_TITLE = "Photobooth Cảm Ứng"
-WINDOW_WIDTH = 1200
-WINDOW_HEIGHT = 800
-CAMERA_INDEX = 0
-FIRST_PHOTO_DELAY = 10  # Giây cho ảnh đầu tiên
-BETWEEN_PHOTO_DELAY = 1  # Giây giữa các ảnh
-PHOTOS_TO_TAKE = 10
-TEMPLATE_DIR = "templates"
-OUTPUT_DIR = "output"
-SAMPLE_PHOTOS_DIR = "sample_photos"
-
-# ==========================================
-# BIẾN TOÀN CỤC CHO CẤU HÌNH
-# ==========================================
-APP_CONFIG = {}
-
-def load_config():
-    """Tải cấu hình từ file config.json."""
-    global APP_CONFIG
-    if not os.path.exists(CONFIG_FILE):
-        return False
-    try:
-        with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-            APP_CONFIG = json.load(f)
-        
-        # Cấu hình Cloudinary từ config
-        cloud_config = APP_CONFIG.get('cloudinary', {})
-        if all([cloud_config.get('cloud_name'), cloud_config.get('api_key'), cloud_config.get('api_secret')]):
-            import cloudinary
-            cloudinary.config(
-                cloud_name=cloud_config.get('cloud_name'),
-                api_key=cloud_config.get('api_key'),
-                api_secret=cloud_config.get('api_secret'),
-                secure=True
-            )
-        return True
-    except Exception as e:
-        print(f"Lỗi đọc config: {e}")
-        return False
-
-def get_price_2():
-    """Lấy giá gói 2 ảnh từ config."""
-    return APP_CONFIG.get('price_2_photos', 20000)
-
-def get_price_4():
-    """Lấy giá gói 4 ảnh từ config."""
-    return APP_CONFIG.get('price_4_photos', 35000)
-
-def format_price(amount):
-    """Format số tiền thành chuỗi VNĐ."""
-    return f"{amount:,}".replace(",", ".") + " VNĐ"
-
-def generate_unique_code():
-    """Tạo mã giao dịch duy nhất: PB + 4 ký tự ngẫu nhiên."""
-    chars = string.ascii_uppercase + string.digits
-    return "PB" + ''.join(random.choices(chars, k=4))
-
-def generate_vietqr_url(amount, description):
-    """Tạo URL VietQR động từ config."""
-    bank_bin = APP_CONFIG.get('bank_bin', '')
-    account = APP_CONFIG.get('bank_account', '')
-    name = APP_CONFIG.get('account_name', '')
-    
-    # Format: https://img.vietqr.io/image/{bank_bin}-{account}-compact2.png?amount={amount}&addInfo={description}&accountName={name}
-    url = f"https://img.vietqr.io/image/{bank_bin}-{account}-compact2.png"
-    url += f"?amount={amount}&addInfo={description}&accountName={name}"
-    return url
-
-# ==========================================
-# HÀM HỖ TRỢ (HELPER FUNCTIONS)
-# ==========================================
-
-def ensure_directories():
-    """Tạo các thư mục cần thiết."""
-    if not os.path.exists(TEMPLATE_DIR):
-        os.makedirs(TEMPLATE_DIR)
-        create_sample_templates()
-    if not os.path.exists(OUTPUT_DIR):
-        os.makedirs(OUTPUT_DIR)
-    if not os.path.exists(SAMPLE_PHOTOS_DIR):
-        os.makedirs(SAMPLE_PHOTOS_DIR)
-        create_sample_photos()
-
-
-def create_sample_templates():
-    """Tạo các template mẫu."""
-    width, height = 1280, 720
-    
-    # Template 1: Khung đỏ đơn giản
-    img = np.zeros((height, width, 4), dtype=np.uint8)
-    cv2.rectangle(img, (0, 0), (width, height), (0, 0, 255, 255), 40)
-    cv2.putText(img, "PHOTOBOOTH", (width//2 - 200, 60), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255, 255), 4)
-    img[80:height-40, 40:width-40] = [0, 0, 0, 0]
-    cv2.imwrite(os.path.join(TEMPLATE_DIR, "frame_red.png"), img)
-    
-    # Template 2: Khung xanh
-    img2 = np.zeros((height, width, 4), dtype=np.uint8)
-    cv2.rectangle(img2, (0, 0), (width, height), (255, 100, 0, 255), 40)
-    cv2.putText(img2, "MEMORIES", (width//2 - 150, 60), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255, 255), 4)
-    img2[80:height-40, 40:width-40] = [0, 0, 0, 0]
-    cv2.imwrite(os.path.join(TEMPLATE_DIR, "frame_blue.png"), img2)
-
-def create_sample_photos():
-    """Tạo các ảnh mẫu demo."""
-    colors = [
-        ((255, 100, 150), "Memory 1"),
-        ((100, 200, 255), "Memory 2"),
-        ((150, 255, 150), "Memory 3"),
-        ((255, 200, 100), "Memory 4"),
-        ((200, 150, 255), "Memory 5"),
-        ((100, 255, 200), "Memory 6"),
-        ((255, 150, 200), "Memory 7"),
-        ((150, 200, 255), "Memory 8"),
-    ]
-    
-    for i, (color, text) in enumerate(colors):
-        img = np.zeros((400, 300, 3), dtype=np.uint8)
-        # Gradient background
-        for y in range(400):
-            ratio = y / 400
-            img[y, :] = (
-                int(color[0] * (1 - ratio * 0.5)),
-                int(color[1] * (1 - ratio * 0.5)),
-                int(color[2] * (1 - ratio * 0.5))
-            )
-        # Add text
-        cv2.putText(img, text, (50, 200), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-        cv2.putText(img, "Sample", (80, 250), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
-        cv2.imwrite(os.path.join(SAMPLE_PHOTOS_DIR, f"sample_{i+1}.jpg"), img)
-
-
-
-def generate_qr_code(content, size=300):
-    """Tạo mã QR từ nội dung."""
-    qr = qrcode.QRCode(
-        version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_L,
-        box_size=10,
-        border=4,
-    )
-    qr.add_data(content)
-    qr.make(fit=True)
-    
-    qr_img = qr.make_image(fill_color="black", back_color="white")
-    qr_img = qr_img.resize((size, size))
-    
-    # Convert PIL Image to QPixmap
-    buffer = BytesIO()
-    qr_img.save(buffer, format="PNG")
-    buffer.seek(0)
-    
-    q_img = QImage()
-    q_img.loadFromData(buffer.getvalue())
-    return QPixmap.fromImage(q_img)
-
-def overlay_images(background, foreground):
-    """Ghép ảnh foreground (có alpha) lên background."""
-    bg_h, bg_w = background.shape[:2]
-    fg_h, fg_w = foreground.shape[:2]
-
-    if (bg_w, bg_h) != (fg_w, fg_h):
-        foreground = cv2.resize(foreground, (bg_w, bg_h))
-
-    if foreground.shape[2] < 4:
-        return background
-    
-    alpha = foreground[:, :, 3] / 255.0
-    output = np.zeros_like(background)
-    
-    for c in range(0, 3):
-        output[:, :, c] = (foreground[:, :, c] * alpha + 
-                           background[:, :, c] * (1.0 - alpha))
-    
-    return output
-
-def convert_cv_qt(cv_img):
-    """Chuyển đổi ảnh OpenCV sang QPixmap."""
-    if cv_img is None:
-        return QPixmap()
-    rgb_image = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
-    h, w, ch = rgb_image.shape
-    bytes_per_line = ch * w
-    qt_format = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
-    return QPixmap.fromImage(qt_format)
-
-def check_printer_available():
-    """Kiểm tra xem có máy in nào được kết nối không (Windows)."""
-    if os.name != 'nt':
-        return False, "Chỉ hỗ trợ Windows"
-    
-    try:
-        # Dùng PowerShell để lấy danh sách máy in
-        result = subprocess.run(
-            ['powershell', '-Command', 'Get-Printer | Select-Object -ExpandProperty Name'],
-            capture_output=True, text=True, timeout=5
-        )
-        printers = result.stdout.strip().split('\n')
-        printers = [p.strip() for p in printers if p.strip()]
-        
-        if printers:
-            return True, printers[0]  # Trả về máy in đầu tiên
-        else:
-            return False, "Không tìm thấy máy in"
-    except Exception as e:
-        return False, str(e)
-
-def load_sample_photos():
-    """Load các ảnh mẫu từ thư mục."""
-    photos = []
-    if os.path.exists(SAMPLE_PHOTOS_DIR):
-        for f in sorted(os.listdir(SAMPLE_PHOTOS_DIR)):
-            if f.lower().endswith(('.jpg', '.jpeg', '.png')):
-                photos.append(os.path.join(SAMPLE_PHOTOS_DIR, f))
-    # Load từ output nếu có
-    if os.path.exists(OUTPUT_DIR):
-        for f in sorted(os.listdir(OUTPUT_DIR)):
-            if f.lower().endswith(('.jpg', '.jpeg', '.png')):
-                photos.append(os.path.join(OUTPUT_DIR, f))
-    return photos
-
-# ==========================================
-# CLOUDINARY UPLOAD THREAD
-# ==========================================
-
-class CloudinaryUploadThread(QThread):
-    """Thread để upload ảnh lên Cloudinary mà không block UI."""
-    
-    # Signals
-    upload_success = pyqtSignal(str)  # Emit URL khi thành công
-    upload_error = pyqtSignal(str)    # Emit thông báo lỗi
-    
-    def __init__(self, image_path):
-        super().__init__()
-        self.image_path = image_path
-    
-    def run(self):
-        try:
-            # Upload lên Cloudinary
-            result = cloudinary.uploader.upload(
-                self.image_path,
-                folder="photobooth",
-                resource_type="image"
-            )
-            # Emit URL khi thành công
-            self.upload_success.emit(result['secure_url'])
-        except Exception as e:
-            # Emit lỗi
-            self.upload_error.emit(str(e))
-
-
-# ==========================================
-# THREAD TẢI ẢNH QR TỪ VIETQR
-# ==========================================
-class QRImageLoaderThread(QThread):
-    """Thread tải ảnh QR từ VietQR API để không block UI."""
-    image_loaded = pyqtSignal(QPixmap)
-    load_error = pyqtSignal(str)
-    
-    def __init__(self, url):
-        super().__init__()
-        self.url = url
-    
-    def run(self):
-        try:
-            response = requests.get(self.url, timeout=15)
-            response.raise_for_status()
-            img_data = response.content
-            pixmap = QPixmap()
-            pixmap.loadFromData(img_data)
-            self.image_loaded.emit(pixmap)
-        except Exception as e:
-            self.load_error.emit(str(e))
-
-
-# ==========================================
-# THREAD KIỂM TRA GIAO DỊCH CASSO
-# ==========================================
-class CassoCheckThread(QThread):
-    """
-    Thread kiểm tra giao dịch từ Casso API mỗi 3 giây.
-    Khi tìm thấy giao dịch khớp số tiền và nội dung, phát signal.
-    """
-    payment_received = pyqtSignal()  # Signal khi nhận được tiền
-    check_error = pyqtSignal(str)    # Signal khi có lỗi
-    
-    def __init__(self, amount, description):
-        super().__init__()
-        self.amount = amount
-        self.description = description.upper()
-        self.running = True
-    
-    def stop(self):
-        """Dừng thread."""
-        self.running = False
-    
-    def run(self):
-        api_key = APP_CONFIG.get('casso_api_key', '')
-        if not api_key:
-            self.check_error.emit("Chưa cấu hình Casso API Key")
-            return
-        
-        headers = {
-            "Authorization": f"Apikey {api_key}",
-            "Content-Type": "application/json"
-        }
-        
-        while self.running:
-            try:
-                # Gọi API Casso lấy danh sách giao dịch
-                response = requests.get(
-                    "https://oauth.casso.vn/v2/transactions",
-                    headers=headers,
-                    params={"pageSize": 20, "sort": "DESC"},
-                    timeout=10
-                )
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    transactions = data.get('data', {}).get('records', [])
-                    
-                    for trans in transactions:
-                        trans_amount = trans.get('amount', 0)
-                        trans_desc = trans.get('description', '').upper()
-                        
-                        # Kiểm tra khớp số tiền và nội dung chuyển khoản
-                        if trans_amount >= self.amount and self.description in trans_desc:
-                            self.payment_received.emit()
-                            return
-                
-                # Chờ 3 giây trước khi kiểm tra lại
-                for _ in range(30):  # 3 giây = 30 x 0.1s
-                    if not self.running:
-                        return
-                    time.sleep(0.1)
-                    
-            except Exception as e:
-                self.check_error.emit(str(e))
-                time.sleep(3)
-
-
-class DownloadQRDialog(QDialog):
-    """Dialog hiển thị QR code để khách tải ảnh."""
-    
-    def __init__(self, image_path, parent=None):
-        super().__init__(parent)
-        self.image_path = image_path
-        self.upload_thread = None
-        
-        self.setWindowTitle("📱 Tải ảnh về điện thoại")
-        self.setFixedSize(500, 600)
-        self.setStyleSheet("""
-            QDialog {
-                background-color: #1a1a2e;
-            }
-            QLabel {
-                color: white;
-                font-family: 'Arial', 'Tahoma', sans-serif;
-            }
-            QPushButton {
-                background-color: #e94560;
-                color: white;
-                border: none;
-                border-radius: 10px;
-                padding: 15px 30px;
-                font-size: 18px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #ff6b6b;
-            }
-        """)
-        
-        self.setup_ui()
-        self.start_upload()
-    
-    def setup_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setAlignment(Qt.AlignCenter)
-        layout.setSpacing(20)
-        layout.setContentsMargins(30, 30, 30, 30)
-        
-        # Title
-        self.title_label = QLabel("☁️ ĐANG TẢI ẢNH LÊN CLOUD...")
-        self.title_label.setStyleSheet("font-size: 24px; font-weight: bold; color: #ffd700;")
-        self.title_label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(self.title_label)
-        
-        # Status/Info label
-        self.status_label = QLabel("Vui lòng chờ trong giây lát...")
-        self.status_label.setStyleSheet("font-size: 16px; color: #a8dadc;")
-        self.status_label.setAlignment(Qt.AlignCenter)
-        self.status_label.setWordWrap(True)
-        layout.addWidget(self.status_label)
-        
-        # QR Code container
-        self.qr_container = QWidget()
-        self.qr_container.setFixedSize(350, 350)
-        self.qr_container.setStyleSheet("""
-            background-color: white;
-            border-radius: 20px;
-        """)
-        qr_layout = QVBoxLayout(self.qr_container)
-        qr_layout.setAlignment(Qt.AlignCenter)
-        
-        self.qr_label = QLabel()
-        self.qr_label.setAlignment(Qt.AlignCenter)
-        self.qr_label.setFixedSize(300, 300)
-        self.qr_label.setStyleSheet("background-color: white;")
-        qr_layout.addWidget(self.qr_label)
-        
-        # Hiển thị loading spinner ban đầu
-        self.qr_label.setText("⏳")
-        self.qr_label.setStyleSheet("font-size: 80px; background-color: white;")
-        
-        layout.addWidget(self.qr_container, alignment=Qt.AlignCenter)
-        
-        # Instruction label
-        self.instruction_label = QLabel("")
-        self.instruction_label.setStyleSheet("font-size: 14px; color: #a8dadc;")
-        self.instruction_label.setAlignment(Qt.AlignCenter)
-        self.instruction_label.setWordWrap(True)
-        layout.addWidget(self.instruction_label)
-        
-        # Close button (initially hidden)
-        self.btn_close = QPushButton("✅ ĐÓNG")
-        self.btn_close.setFixedSize(200, 60)
-        self.btn_close.clicked.connect(self.accept)
-        self.btn_close.hide()
-        layout.addWidget(self.btn_close, alignment=Qt.AlignCenter)
-    
-    def start_upload(self):
-        """Bắt đầu upload ảnh lên Cloudinary."""
-        self.upload_thread = CloudinaryUploadThread(self.image_path)
-        self.upload_thread.upload_success.connect(self.on_upload_success)
-        self.upload_thread.upload_error.connect(self.on_upload_error)
-        self.upload_thread.start()
-    
-    def on_upload_success(self, url):
-        """Xử lý khi upload thành công."""
-        self.title_label.setText("📱 QUÉT MÃ ĐỂ TẢI ẢNH")
-        self.title_label.setStyleSheet("font-size: 24px; font-weight: bold; color: #06d6a0;")
-        self.status_label.setText("Ảnh đã được tải lên thành công!")
-        
-        # Tạo QR code từ URL
-        qr = qrcode.QRCode(version=1, box_size=10, border=2)
-        qr.add_data(url)
-        qr.make(fit=True)
-        qr_img = qr.make_image(fill_color="black", back_color="white")
-        
-        # Convert PIL Image to QPixmap
-        buffer = BytesIO()
-        qr_img.save(buffer, format='PNG')
-        buffer.seek(0)
-        
-        pixmap = QPixmap()
-        pixmap.loadFromData(buffer.getvalue())
-        scaled = pixmap.scaled(280, 280, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-        
-        self.qr_label.setStyleSheet("background-color: white;")
-        self.qr_label.setPixmap(scaled)
-        
-        self.instruction_label.setText(
-            "📲 Mở camera điện thoại và quét mã QR\n"
-            "để tải ảnh về máy của bạn!"
-        )
-        self.instruction_label.setStyleSheet("font-size: 16px; color: #ffd700;")
-        
-        self.btn_close.show()
-    
-    def on_upload_error(self, error_msg):
-        """Xử lý khi upload thất bại."""
-        self.title_label.setText("❌ LỖI TẢI ẢNH")
-        self.title_label.setStyleSheet("font-size: 24px; font-weight: bold; color: #e94560;")
-        self.status_label.setText(f"Không thể tải ảnh lên Cloud.\n\nLỗi: {error_msg}")
-        self.status_label.setStyleSheet("font-size: 14px; color: #ff6b6b;")
-        
-        self.qr_label.setText("❌")
-        self.qr_label.setStyleSheet("font-size: 80px; background-color: white; color: #e94560;")
-        
-        self.instruction_label.setText(
-            "Ảnh vẫn được lưu tại thư mục D:\\picture\n"
-            "Vui lòng liên hệ nhân viên để được hỗ trợ."
-        )
-        
-        self.btn_close.setText("ĐÓNG")
-        self.btn_close.show()
-    
-    def closeEvent(self, event):
-        """Cleanup khi đóng dialog."""
-        if self.upload_thread and self.upload_thread.isRunning():
-            self.upload_thread.wait()
-        event.accept()
-
-
-# ==========================================
-# CAROUSEL PHOTO WIDGET
-# ==========================================
-
-class CarouselPhotoWidget(QWidget):
-    """Widget hiển thị ảnh carousel trôi từ trái sang phải."""
-    
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.photos = []
-        self.photo_labels = []
-        self.current_offset = 0
-        self.photo_width = 220
-        self.photo_height = 280
-        self.spacing = 20
-        self.scroll_speed = 2  # pixels per frame
-        
-        self.setMinimumHeight(self.photo_height + 40)
-        
-        # Timer cho animation
-        self.scroll_timer = QTimer()
-        self.scroll_timer.timeout.connect(self.update_scroll)
-        self.scroll_timer.start(30)  # ~33 FPS
-        
-    def set_photos(self, photo_paths):
-        """Đặt danh sách ảnh cho carousel."""
-        self.photos = photo_paths
-        self.setup_photo_labels()
-        
-    def setup_photo_labels(self):
-        """Tạo các label ảnh cho carousel."""
-        # Xóa các label cũ
-        for label in self.photo_labels:
-            label.deleteLater()
-        self.photo_labels = []
-        
-        if not self.photos:
-            return
-        
-        # Nhân ảnh để tạo hiệu ứng vòng lặp liền mạch
-        # Nhân 4 lần để đảm bảo đủ ảnh phủ kín màn hình và vòng lặp
-        total_photos = self.photos * 4
-        
-        for i, photo_path in enumerate(total_photos):
-            label = QLabel(self)
-            label.setFixedSize(self.photo_width, self.photo_height)
-            label.setAlignment(Qt.AlignCenter)
-            label.setStyleSheet("""
-                QLabel {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                        stop:0 #2d2d44, stop:1 #1a1a2e);
-                    border: 3px solid #4361ee;
-                    border-radius: 15px;
-                    padding: 5px;
-                }
-            """)
-            
-            # Load và scale ảnh
-            img = cv2.imread(photo_path)
-            if img is not None:
-                qt_img = convert_cv_qt(img)
-                scaled = qt_img.scaled(
-                    self.photo_width - 16, 
-                    self.photo_height - 16, 
-                    Qt.KeepAspectRatio, 
-                    Qt.SmoothTransformation
-                )
-                label.setPixmap(scaled)
-            
-            label.show()
-            self.photo_labels.append(label)
-        
-        self.update_positions()
-    
-    def update_positions(self):
-        """Cập nhật vị trí các ảnh."""
-        if not self.photo_labels:
-            return
-            
-        y_pos = 20
-        
-        for i, label in enumerate(self.photo_labels):
-            x_pos = i * (self.photo_width + self.spacing) - self.current_offset
-            label.move(int(x_pos), y_pos)
-    
-    def update_scroll(self):
-        """Cập nhật vị trí scroll."""
-        if not self.photo_labels or not self.photos:
-            return
-        
-        self.current_offset += self.scroll_speed
-        
-        # Reset offset khi đã cuộn qua 1 bộ ảnh gốc
-        single_set_width = len(self.photos) * (self.photo_width + self.spacing)
-        
-        # Xử lý vòng lặp cho cả 2 chiều
-        if self.current_offset >= single_set_width:
-            self.current_offset -= single_set_width
-        elif self.current_offset <= 0:
-            self.current_offset += single_set_width
-        
-        self.update_positions()
+# Import từ các module đã tách
+from configs import (
+    WINDOW_TITLE, WINDOW_WIDTH, WINDOW_HEIGHT, CAMERA_INDEX,
+    FIRST_PHOTO_DELAY, BETWEEN_PHOTO_DELAY, PHOTOS_TO_TAKE,
+    TEMPLATE_DIR, OUTPUT_DIR, SAMPLE_PHOTOS_DIR,
+    APP_CONFIG,  # Thêm APP_CONFIG
+    get_price_2, get_price_4, format_price,
+    generate_unique_code, generate_vietqr_url
+)
+from utils import (
+    ensure_directories, convert_cv_qt, overlay_images,
+    check_printer_available, load_sample_photos, crop_to_aspect
+)
+from workers import (
+    CloudinaryUploadThread, QRImageLoaderThread, CassoCheckThread
+)
+from ui_components import (
+    DownloadQRDialog, CarouselPhotoWidget
+)
+from frame_config import get_layout_config
 
 # ==========================================
 # GIAO DIỆN CHÍNH (MAIN GUI)
@@ -1849,71 +1262,96 @@ class PhotoboothApp(QMainWindow):
         """Tạo collage từ các ảnh đã chọn dựa trên kiểu bố cục với padding."""
         count = len(images)
         
-        # Padding xung quanh các ảnh để khung có thể mở rộng hơn
-        PADDING = 40  # pixels padding xung quanh
-        GAP = 10      # khoảng cách giữa các ảnh
+        # Import cấu hình từ file frame_config.py
+        try:
+            import importlib
+            import frame_config
+            importlib.reload(frame_config)
+            config = frame_config.get_layout_config(self.layout_type)
+            
+            PAD_TOP = config.get("PAD_TOP", 20)
+            PAD_BOTTOM = config.get("PAD_BOTTOM", 100)
+            PAD_LEFT = config.get("PAD_LEFT", 20)
+            PAD_RIGHT = config.get("PAD_RIGHT", 20)
+            GAP = config.get("GAP", 15)
+            CANVAS_W = config.get("CANVAS_W", 1280)
+            CANVAS_H = config.get("CANVAS_H", 720)
+            
+            print(f"DEBUG: Loaded config for {self.layout_type}: {CANVAS_W}x{CANVAS_H}, T={PAD_TOP}, B={PAD_BOTTOM}, L={PAD_LEFT}, R={PAD_RIGHT}, G={GAP}")
+        except Exception as e:
+            # Fallback nếu không load được config hoặc có lỗi cú pháp trong file config
+            print(f"WARNING: Cannot load frame_config.py ({e}). Using defaults.")
+            PAD_TOP = 20
+            PAD_BOTTOM = 100
+            PAD_LEFT = 20
+            PAD_RIGHT = 20
+            GAP = 15
+            # Default canvas based on layout
+            if self.layout_type == "2x1": CANVAS_W, CANVAS_H = 640, 900
+            elif self.layout_type == "4x1": CANVAS_W, CANVAS_H = 640, 1600
+            else: CANVAS_W, CANVAS_H = 1280, 720
         
         if count == 0:
-            return np.zeros((720, 1280, 3), dtype=np.uint8)
+            return np.zeros((CANVAS_H, CANVAS_W, 3), dtype=np.uint8)
 
         if count == 2:
             if self.layout_type == "1x2":
-                # 2 ảnh: 1 hàng 2 cột (ngang) - canvas 1280x720
-                canvas_w, canvas_h = 1280, 720
+                # 2 ảnh: 1 hàng 2 cột (ngang)
+                canvas_w, canvas_h = CANVAS_W, CANVAS_H
                 canvas = np.zeros((canvas_h, canvas_w, 3), dtype=np.uint8)
                 
                 # Tính kích thước ảnh sau khi trừ padding
-                available_w = canvas_w - 2 * PADDING - GAP
-                available_h = canvas_h - 2 * PADDING
+                available_w = canvas_w - PAD_LEFT - PAD_RIGHT - GAP
+                available_h = canvas_h - PAD_TOP - PAD_BOTTOM
                 img_w = available_w // 2
                 img_h = available_h
                 
                 for i, img in enumerate(images):
                     cropped = self.crop_to_aspect(img, img_w, img_h)
                     resized = cv2.resize(cropped, (img_w, img_h))
-                    x = PADDING + i * (img_w + GAP)
-                    y = PADDING
+                    x = PAD_LEFT + i * (img_w + GAP)
+                    y = PAD_TOP
                     canvas[y:y+img_h, x:x+img_w] = resized
                     
             elif self.layout_type == "2x1":
                 # 2 ảnh: 2 hàng 1 cột (dọc)
-                canvas_w, canvas_h = 640, 900
+                canvas_w, canvas_h = CANVAS_W, CANVAS_H
                 canvas = np.zeros((canvas_h, canvas_w, 3), dtype=np.uint8)
                 
-                available_w = canvas_w - 2 * PADDING
-                available_h = canvas_h - 2 * PADDING - GAP
+                available_w = canvas_w - PAD_LEFT - PAD_RIGHT
+                available_h = canvas_h - PAD_TOP - PAD_BOTTOM - GAP
                 img_w = available_w
                 img_h = available_h // 2
                 
                 for i, img in enumerate(images):
                     cropped = self.crop_to_aspect(img, img_w, img_h)
                     resized = cv2.resize(cropped, (img_w, img_h))
-                    x = PADDING
-                    y = PADDING + i * (img_h + GAP)
+                    x = PAD_LEFT
+                    y = PAD_TOP + i * (img_h + GAP)
                     canvas[y:y+img_h, x:x+img_w] = resized
             else:
                 # Default 1x2
-                canvas_w, canvas_h = 1280, 720
+                canvas_w, canvas_h = CANVAS_W, CANVAS_H
                 canvas = np.zeros((canvas_h, canvas_w, 3), dtype=np.uint8)
-                available_w = canvas_w - 2 * PADDING - GAP
-                available_h = canvas_h - 2 * PADDING
+                available_w = canvas_w - PAD_LEFT - PAD_RIGHT - GAP
+                available_h = canvas_h - PAD_TOP - PAD_BOTTOM
                 img_w = available_w // 2
                 img_h = available_h
                 for i, img in enumerate(images):
                     cropped = self.crop_to_aspect(img, img_w, img_h)
                     resized = cv2.resize(cropped, (img_w, img_h))
-                    x = PADDING + i * (img_w + GAP)
-                    y = PADDING
+                    x = PAD_LEFT + i * (img_w + GAP)
+                    y = PAD_TOP
                     canvas[y:y+img_h, x:x+img_w] = resized
                     
         elif count == 4:
             if self.layout_type == "2x2":
-                # 4 ảnh: 2 hàng 2 cột (lưới vuông) - canvas 1280x720
-                canvas_w, canvas_h = 1280, 720
+                # 4 ảnh: 2 hàng 2 cột (lưới vuông)
+                canvas_w, canvas_h = CANVAS_W, CANVAS_H
                 canvas = np.zeros((canvas_h, canvas_w, 3), dtype=np.uint8)
                 
-                available_w = canvas_w - 2 * PADDING - GAP
-                available_h = canvas_h - 2 * PADDING - GAP
+                available_w = canvas_w - PAD_LEFT - PAD_RIGHT - GAP
+                available_h = canvas_h - PAD_TOP - PAD_BOTTOM - GAP
                 img_w = available_w // 2
                 img_h = available_h // 2
                 
@@ -1922,32 +1360,32 @@ class PhotoboothApp(QMainWindow):
                     resized = cv2.resize(cropped, (img_w, img_h))
                     row = i // 2
                     col = i % 2
-                    x = PADDING + col * (img_w + GAP)
-                    y = PADDING + row * (img_h + GAP)
+                    x = PAD_LEFT + col * (img_w + GAP)
+                    y = PAD_TOP + row * (img_h + GAP)
                     canvas[y:y+img_h, x:x+img_w] = resized
                     
             elif self.layout_type == "4x1":
                 # 4 ảnh: 4 hàng 1 cột (dọc dài)
-                canvas_w, canvas_h = 640, 1600
+                canvas_w, canvas_h = CANVAS_W, CANVAS_H
                 canvas = np.zeros((canvas_h, canvas_w, 3), dtype=np.uint8)
                 
-                available_w = canvas_w - 2 * PADDING
-                available_h = canvas_h - 2 * PADDING - 3 * GAP
+                available_w = canvas_w - PAD_LEFT - PAD_RIGHT
+                available_h = canvas_h - PAD_TOP - PAD_BOTTOM - 3 * GAP
                 img_w = available_w
                 img_h = available_h // 4
                 
                 for i, img in enumerate(images):
                     cropped = self.crop_to_aspect(img, img_w, img_h)
                     resized = cv2.resize(cropped, (img_w, img_h))
-                    x = PADDING
-                    y = PADDING + i * (img_h + GAP)
+                    x = PAD_LEFT
+                    y = PAD_TOP + i * (img_h + GAP)
                     canvas[y:y+img_h, x:x+img_w] = resized
             else:
                 # Default 2x2
-                canvas_w, canvas_h = 1280, 720
+                canvas_w, canvas_h = CANVAS_W, CANVAS_H
                 canvas = np.zeros((canvas_h, canvas_w, 3), dtype=np.uint8)
-                available_w = canvas_w - 2 * PADDING - GAP
-                available_h = canvas_h - 2 * PADDING - GAP
+                available_w = canvas_w - PAD_LEFT - PAD_RIGHT - GAP
+                available_h = canvas_h - PAD_TOP - PAD_BOTTOM - GAP
                 img_w = available_w // 2
                 img_h = available_h // 2
                 for i, img in enumerate(images):
@@ -1955,10 +1393,10 @@ class PhotoboothApp(QMainWindow):
                     resized = cv2.resize(cropped, (img_w, img_h))
                     row = i // 2
                     col = i % 2
-                    x = PADDING + col * (img_w + GAP)
-                    y = PADDING + row * (img_h + GAP)
+                    x = PAD_LEFT + col * (img_w + GAP)
+                    y = PAD_TOP + row * (img_h + GAP)
                     canvas[y:y+img_h, x:x+img_w] = resized
-        
+
         return canvas
 
     def crop_to_aspect(self, img, target_w, target_h):
