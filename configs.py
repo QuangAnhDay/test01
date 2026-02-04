@@ -73,6 +73,24 @@ def get_price_4():
     return APP_CONFIG.get('price_4_photos', 35000)
 
 
+def get_price_by_layout(layout_name):
+    """Lấy giá cho một layout cụ thể từ config hoặc dùng giá mặc định."""
+    prices = APP_CONFIG.get('layout_prices', {})
+    if layout_name in prices:
+        return prices[layout_name]
+    
+    # Fallback to default group prices
+    # Determine photo count for default layouts
+    if layout_name in ["1x2", "2x1"]:
+        return get_price_2()
+    return get_price_4()
+
+
+def get_all_prices():
+    """Lấy dictionary giá của tất cả layout."""
+    return APP_CONFIG.get('layout_prices', {})
+
+
 def format_price(amount):
     """Format số tiền thành chuỗi VNĐ."""
     return f"{amount:,}".replace(",", ".") + " VNĐ"

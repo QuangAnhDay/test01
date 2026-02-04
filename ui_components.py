@@ -8,10 +8,10 @@ File này chứa các widget giao diện tùy chỉnh.
 import cv2
 import qrcode
 from io import BytesIO
-from PyQt5.QtWidgets import QDialog, QWidget, QLabel, QPushButton, QVBoxLayout
+from PyQt5.QtWidgets import QDialog, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QPixmap
-from workers import CloudinaryUploadThread
+from workers import CloudinaryUploadThread, CloudinaryLandingPageThread
 from utils import convert_cv_qt
 
 
@@ -166,11 +166,93 @@ class DownloadQRDialog(QDialog):
         self.btn_close.setText("ĐÓNG")
         self.btn_close.show()
     
-    def closeEvent(self, event):
-        """Cleanup khi đóng dialog."""
-        if self.upload_thread and self.upload_thread.isRunning():
-            self.upload_thread.wait()
-        event.accept()
+class DownloadSingleQRDialog(QDialog):
+    """Dialog hiển thị DUY NHẤT 1 QR code dẫn tới trang web chứa cả ảnh và video."""
+    
+    def __init__(self, image_path, video_path=None, parent=None):
+        super().__init__(parent)
+        self.image_path = image_path
+        self.video_path = video_path
+        
+        self.setWindowTitle("📱 Tải ảnh và Video")
+        self.setFixedSize(500, 600)
+        self.setStyleSheet("""
+            QDialog { background-color: #1a1a2e; border-radius: 20px; }
+            QLabel { color: white; font-family: 'Arial', sans-serif; }
+            QPushButton {
+                background-color: #709a8a;
+                color: white;
+                border-radius: 15px;
+                padding: 15px;
+                font-size: 18px;
+                font-weight: bold;
+            }
+            QPushButton:hover { background-color: #84af9f; }
+        """)
+        
+        self.setup_ui()
+        self.start_combined_upload()
+    
+    def setup_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setSpacing(20)
+        layout.setContentsMargins(40, 40, 40, 40)
+        
+        self.title_label = QLabel("☁️ ĐANG TẠO TRANG TẢI...")
+        self.title_label.setStyleSheet("font-size: 22px; font-weight: bold; color: #ffd700;")
+        self.title_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.title_label)
+        
+        self.qr_label = QLabel("⌛")
+        self.qr_label.setFixedSize(300, 300)
+        self.qr_label.setAlignment(Qt.AlignCenter)
+        self.qr_label.setStyleSheet("background-color: white; border-radius: 20px; font-size: 60px; color: #333;")
+        layout.addWidget(self.qr_label, alignment=Qt.AlignCenter)
+        
+        self.status_label = QLabel("Đang xử lý ảnh và video, vui lòng đợi giây lát...")
+        self.status_label.setWordWrap(True)
+        self.status_label.setAlignment(Qt.AlignCenter)
+        self.status_label.setStyleSheet("color: #aaa; font-size: 14px;")
+        layout.addWidget(self.status_label)
+        
+        self.btn_close = QPushButton("✅ HOÀN TẤT")
+        self.btn_close.setFixedSize(200, 50)
+        self.btn_close.clicked.connect(self.accept)
+        self.btn_close.hide()
+        layout.addWidget(self.btn_close, alignment=Qt.AlignCenter)
+
+    def start_combined_upload(self):
+        """Bắt đầu tiến trình upload và tạo trang Landing Page."""
+        self.thread = CloudinaryLandingPageThread(self.image_path, self.video_path)
+        self.thread.upload_success.connect(self.on_upload_success)
+        self.thread.upload_error.connect(self.on_upload_error)
+        self.thread.start()
+
+    def on_upload_success(self, url):
+        """Khi đã có link Landing Page, tạo QR."""
+        self.title_label.setText("📱 QUÉT MÃ ĐỂ TẢI")
+        self.title_label.setStyleSheet("font-size: 24px; font-weight: bold; color: #06d6a0;")
+        self.status_label.setText("Trang kỷ niệm của bạn đã sẵn sàng! Quét mã để xem và tải cả ảnh & video.")
+        
+        # Tạo QR code
+        qr = qrcode.QRCode(version=1, box_size=10, border=1)
+        qr.add_data(url)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+        
+        buf = BytesIO()
+        img.save(buf, format='PNG')
+        pix = QPixmap()
+        pix.loadFromData(buf.getvalue())
+        scaled = pix.scaled(280, 280, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        
+        self.qr_label.setPixmap(scaled)
+        self.btn_close.show()
+
+    def on_upload_error(self, error_msg):
+        self.title_label.setText("❌ LỖI XỬ LÝ")
+        self.status_label.setText(f"Có lỗi xảy ra: {error_msg}")
+        self.btn_close.show()
 
 
 # ==========================================

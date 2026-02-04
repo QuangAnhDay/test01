@@ -16,13 +16,15 @@ from PyQt5.QtCore import Qt, QTimer, QSize, QPropertyAnimation, QPoint, QEasingC
 from PyQt5.QtGui import QImage, QPixmap, QFont, QIcon
 
 # Import từ các module đã tách
+import configs
 from configs import (
     WINDOW_TITLE, WINDOW_WIDTH, WINDOW_HEIGHT, CAMERA_INDEX,
     FIRST_PHOTO_DELAY, BETWEEN_PHOTO_DELAY, PHOTOS_TO_TAKE,
     TEMPLATE_DIR, OUTPUT_DIR, SAMPLE_PHOTOS_DIR,
     APP_CONFIG,  # Thêm APP_CONFIG
     get_price_2, get_price_4, format_price,
-    generate_unique_code, generate_vietqr_url
+    generate_unique_code, generate_vietqr_url,
+    load_config, get_price_by_layout  # Thêm các hàm còn thiếu
 )
 from utils import (
     ensure_directories, convert_cv_qt, overlay_images,
@@ -34,7 +36,7 @@ from workers import (
 from ui_components import (
     DownloadQRDialog, CarouselPhotoWidget
 )
-from frame_config import get_layout_config
+from frame_config import get_layout_config, get_all_layouts, generate_frame_templates
 
 # ==========================================
 # GIAO DIỆN CHÍNH (MAIN GUI)
@@ -221,6 +223,7 @@ class PhotoboothApp(QMainWindow):
         self.template_time_left = 0
 
         # Load templates
+        generate_frame_templates()
         self.templates = self.load_templates()
 
     # ==========================================
@@ -358,40 +361,45 @@ class PhotoboothApp(QMainWindow):
             self.carousel2.set_photos([])
 
     def create_price_select_screen(self):
-        """Màn hình chọn kiểu lưới ảnh (4 options)."""
+        """Màn hình chọn kiểu lưới ảnh (Tự động cập nhật từ frame_config)."""
         screen = QWidget()
         layout = QVBoxLayout(screen)
         layout.setAlignment(Qt.AlignCenter)
-        layout.setSpacing(30)
-        layout.setContentsMargins(50, 30, 50, 30)
+        layout.setSpacing(20)
+        layout.setContentsMargins(50, 20, 50, 20)
         
         # Title
-        title = QLabel("�️ CHỌN KIỂU LƯỚI ẢNH")
+        title = QLabel("🖼️ CHỌN KIỂU LƯỚI ẢNH")
         title.setObjectName("TitleLabel")
         title.setAlignment(Qt.AlignCenter)
         layout.addWidget(title)
         
-        subtitle = QLabel("Chọn kiểu sắp xếp ảnh bạn muốn")
+        subtitle = QLabel("Chọn kiểu sắp xếp ảnh bạn muốn (Bao gồm các mẫu custom)")
         subtitle.setObjectName("InfoLabel")
         subtitle.setAlignment(Qt.AlignCenter)
         layout.addWidget(subtitle)
         
-        # Grid 2x2 for 4 options
-        options_grid = QGridLayout()
-        options_grid.setSpacing(30)
+        # Scroll Area for many options
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("background-color: transparent; border: none;")
+        
+        container = QWidget()
+        options_grid = QGridLayout(container)
+        options_grid.setSpacing(20)
         options_grid.setAlignment(Qt.AlignCenter)
         
-        # Common button style for 2-photo options
+        # Common button styles
         btn_style_2photo = """
             QPushButton {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
                     stop:0 #16213e, stop:1 #0f3460);
                 border: 4px solid #4361ee;
                 border-radius: 20px;
-                padding: 20px;
-                min-height: 150px;
-                min-width: 250px;
-                font-size: 18px;
+                padding: 15px;
+                min-height: 120px;
+                min-width: 220px;
+                font-size: 16px;
                 font-weight: bold;
                 color: white;
             }
@@ -402,17 +410,16 @@ class PhotoboothApp(QMainWindow):
             }
         """
         
-        # Common button style for 4-photo options
         btn_style_4photo = """
             QPushButton {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
                     stop:0 #16213e, stop:1 #0f3460);
                 border: 4px solid #e94560;
                 border-radius: 20px;
-                padding: 20px;
-                min-height: 150px;
-                min-width: 250px;
-                font-size: 18px;
+                padding: 15px;
+                min-height: 120px;
+                min-width: 220px;
+                font-size: 16px;
                 font-weight: bold;
                 color: white;
             }
@@ -422,31 +429,48 @@ class PhotoboothApp(QMainWindow):
                 border-color: #06d6a0;
             }
         """
+
+        # Lấy tất cả layouts
+        all_layouts = get_all_layouts()
         
+        friendly_names = {
+            "1x2": "📷 📷\n1 HÀNG x 2 CỘT\n(Ngang)",
+            "2x1": "📷\n📷\n2 HÀNG x 1 CỘT\n(Dọc)",
+            "2x2": "📷 📷\n📷 📷\n2 HÀNG x 2 CỘT\n(Ô vuông)",
+            "4x1": "📷\n📷\n📷\n📷\n4 HÀNG x 1 CỘT\n(Dọc)"
+        }
+
+        row, col = 0, 0
+        for name, cfg in all_layouts.items():
+            # Xác định số lượng ảnh
+            if "SLOTS" in cfg:
+                photo_count = len(cfg["SLOTS"])
+            elif name in ["1x2", "2x1"]:
+                photo_count = 2
+            else:
+                photo_count = 4
+                
+            price = configs.get_price_by_layout(name)
+            
+            # Text hiển thị
+            display_text = friendly_names.get(name, f"🎨\nKHUNG CUSTOM:\n{name}")
+            button_text = f"{display_text}\n\n({photo_count} Ảnh)\n{configs.format_price(price)}"
+            
+            btn = QPushButton(button_text)
+            btn.setStyleSheet(btn_style_2photo if photo_count == 2 else btn_style_4photo)
+            
+            # Fix lambda issue by capturing current name/count
+            btn.clicked.connect(lambda checked, c=photo_count, n=name: self.select_layout_and_price(c, n))
+            
+            options_grid.addWidget(btn, row, col)
+            
+            col += 1
+            if col > 2: # 3 columns
+                col = 0
+                row += 1
         
-        # === ROW 1: 2-PHOTO OPTIONS ===
-        btn_2x1 = QPushButton(f"📷\n📷\n\n2 HÀNG x 1 CỘT\n(2 Ảnh - Dọc)\n\n{format_price(get_price_2())}")
-        btn_2x1.setStyleSheet(btn_style_2photo)
-        btn_2x1.clicked.connect(lambda: self.select_layout_and_price(2, "2x1"))
-        options_grid.addWidget(btn_2x1, 0, 0)
-        
-        btn_1x2 = QPushButton(f"📷 📷\n\n1 HÀNG x 2 CỘT\n(2 Ảnh - Ngang)\n\n{format_price(get_price_2())}")
-        btn_1x2.setStyleSheet(btn_style_2photo)
-        btn_1x2.clicked.connect(lambda: self.select_layout_and_price(2, "1x2"))
-        options_grid.addWidget(btn_1x2, 0, 1)
-        
-        # === ROW 2: 4-PHOTO OPTIONS ===
-        btn_4x1 = QPushButton(f"📷\n📷\n📷\n📷\n\n4 HÀNG x 1 CỘT\n(4 Ảnh - Dọc)\n\n{format_price(get_price_4())}")
-        btn_4x1.setStyleSheet(btn_style_4photo)
-        btn_4x1.clicked.connect(lambda: self.select_layout_and_price(4, "4x1"))
-        options_grid.addWidget(btn_4x1, 1, 0)
-        
-        btn_2x2 = QPushButton(f"📷 📷\n📷 📷\n\n2 HÀNG x 2 CỘT\n(4 Ảnh - Lưới)\n\n{format_price(get_price_4())}")
-        btn_2x2.setStyleSheet(btn_style_4photo)
-        btn_2x2.clicked.connect(lambda: self.select_layout_and_price(4, "2x2"))
-        options_grid.addWidget(btn_2x2, 1, 1)
-        
-        layout.addLayout(options_grid)
+        scroll.setWidget(container)
+        layout.addWidget(scroll)
         
         # Back button
         self.btn_back_price = QPushButton("⬅️ QUAY LẠI")
@@ -830,14 +854,17 @@ class PhotoboothApp(QMainWindow):
         self.layout_type = layout_type
         
         # Cập nhật thông tin trên màn hình QR
-        if photo_count == 2:
-            layout_name = "2 Hàng x 1 Cột" if layout_type == "2x1" else "1 Hàng x 2 Cột"
-            self.selected_package_label.setText(f"📦 {layout_name} - 2 ẢNH - {PRICE_2_PHOTOS}")
-            qr_amount = "20000"
-        else:
-            layout_name = "4 Hàng x 1 Cột" if layout_type == "4x1" else "2 Hàng x 2 Cột"
-            self.selected_package_label.setText(f"📦 {layout_name} - 4 ẢNH - {PRICE_4_PHOTOS}")
-            qr_amount = "35000"
+        friendly_names = {
+            "1x2": "1 Hàng x 2 Cột (Ngang)",
+            "2x1": "2 Hàng x 1 Cột (Dọc)",
+            "2x2": "2 Hàng x 2 Cột (Ô vuông)",
+            "4x1": "4 Hàng x 1 Cột (Strip)"
+        }
+        display_name = friendly_names.get(layout_type, f"Bố cục: {layout_type}")
+        
+        amount = configs.get_price_by_layout(layout_type)
+        self.selected_package_label.setText(f"📦 {display_name} - {photo_count} ẢNH - {configs.format_price(amount)}")
+        qr_amount = str(amount)
         
         # Tạo QR code
         qr_content = f"https://momosv3.apimienphi.com/api/QRCode?phone=0123456789&amount={qr_amount}&note=Photobooth{photo_count}Anh"
@@ -1012,7 +1039,8 @@ class PhotoboothApp(QMainWindow):
     def load_templates(self):
         """Load danh sách templates dựa trên kiểu bố cục đã chọn."""
         templates = []
-        # Xác định thư mục template dựa trên bố cục
+        
+        # 1. Thư mục cụ thể cho layout (ví dụ: templates/4_2x2/)
         layout_folder = f"{self.selected_frame_count}_{self.layout_type}"
         layout_template_dir = os.path.join(TEMPLATE_DIR, layout_folder)
         
@@ -1021,12 +1049,24 @@ class PhotoboothApp(QMainWindow):
                 if f.lower().endswith('.png'):
                     templates.append(os.path.join(layout_template_dir, f))
         
-        # Nếu không có template trong thư mục cụ thể, load từ thư mục chung
-        if not templates and os.path.exists(TEMPLATE_DIR):
+        # 2. Thư mục templates/custom/ (Dành cho các layout custom từ frame_config)
+        custom_dir = os.path.join(TEMPLATE_DIR, "custom")
+        if os.path.exists(custom_dir):
+            for f in os.listdir(custom_dir):
+                # Tìm file có tên chứa layout_type (ví dụ: frame_Custom_Layout.png)
+                if f.lower().endswith('.png') and self.layout_type.lower() in f.lower():
+                    templates.append(os.path.join(custom_dir, f))
+
+        # 3. Thư mục gốc templates/
+        if os.path.exists(TEMPLATE_DIR):
             for f in os.listdir(TEMPLATE_DIR):
                 if f.lower().endswith('.png') and os.path.isfile(os.path.join(TEMPLATE_DIR, f)):
-                    templates.append(os.path.join(TEMPLATE_DIR, f))
+                    # Lọc theo layout_type nếu có trong tên file
+                    if self.layout_type.lower() in f.lower() or f.lower().startswith("frame_"):
+                         templates.append(os.path.join(TEMPLATE_DIR, f))
         
+        # Loại bỏ các đường dẫn trùng lặp
+        templates = list(dict.fromkeys(templates))
         return templates
 
     def update_camera_frame(self):
@@ -1293,6 +1333,19 @@ class PhotoboothApp(QMainWindow):
         
         if count == 0:
             return np.zeros((CANVAS_H, CANVAS_W, 3), dtype=np.uint8)
+
+        # HỖ TRỢ LAYOUT CUSTOM (SLOTS)
+        if "SLOTS" in config:
+            canvas = np.zeros((CANVAS_H, CANVAS_W, 3), dtype=np.uint8)
+            slots = config["SLOTS"]
+            for i, img in enumerate(images):
+                if i >= len(slots): break
+                sx, sy, sw, sh = slots[i]
+                cropped = self.crop_to_aspect(img, sw, sh)
+                resized = cv2.resize(cropped, (sw, sh))
+                # Paste vào canvas
+                canvas[sy:sy+sh, sx:sx+sw] = resized
+            return canvas
 
         if count == 2:
             if self.layout_type == "1x2":

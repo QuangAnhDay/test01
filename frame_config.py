@@ -1,12 +1,12 @@
+import os
+import cv2
+import numpy as np
+
 # ==========================================
 # CẤU HÌNH KÍCH THƯỚC KHUNG ẢNH
 # ==========================================
-# File này chứa tất cả thông số padding và gap cho từng layout
-# Sửa các giá trị dưới đây để tinh chỉnh kích thước khung
 
-# ==========================================
-# LAYOUT 1x2
-# ==========================================
+# 1x2: 2 ảnh ngang
 LAYOUT_1x2 = {
     "CANVAS_W": 943,
     "CANVAS_H": 974,
@@ -17,9 +17,7 @@ LAYOUT_1x2 = {
     "GAP": 37,
 }
 
-# ==========================================
-# LAYOUT 2x1
-# ==========================================
+# 2x1: 2 ảnh dọc
 LAYOUT_2x1 = {
     "CANVAS_W": 1286,
     "CANVAS_H": 652,
@@ -30,9 +28,7 @@ LAYOUT_2x1 = {
     "GAP": 42,
 }
 
-# ==========================================
-# LAYOUT 2x2
-# ==========================================
+# 2x2: 4 ảnh ô vuông
 LAYOUT_2x2 = {
     "CANVAS_W": 933,
     "CANVAS_H": 782,
@@ -43,44 +39,90 @@ LAYOUT_2x2 = {
     "GAP": 35,
 }
 
-# ==========================================
-# LAYOUT 4x1
-# ==========================================
-
+# 4x1: 4 ảnh dọc (Strip)
 LAYOUT_4x1 = {
-"CANVAS_W": 551,
-"CANVAS_H": 1517,
-"PAD_TOP": 48,
-"PAD_BOTTOM": 186,
-"PAD_LEFT": 53,
-"PAD_RIGHT": 53,
-"GAP": 32,
+    "CANVAS_W": 551,
+    "CANVAS_H": 1517,
+    "PAD_TOP": 48,
+    "PAD_BOTTOM": 186,
+    "PAD_LEFT": 53,
+    "PAD_RIGHT": 53,
+    "GAP": 32,
 }
 
 # ==========================================
-# HÀM HỖ TRỢ
+# CUSTOM LAYOUTS (Dành cho kéo thả/tùy chỉnh vị trí tự do)
 # ==========================================
+# Nếu muốn tự định nghĩa vị trí từng ảnh, dùng mảng "SLOTS"
+# Định dạng: (x, y, width, height)
+CUSTOM_LAYOUTS = {
+    "Custom_Layout": {
+        "CANVAS_W": 1209,
+        "CANVAS_H": 1517,
+        "SLOTS": [
+            (82, 56, 400, 300),
+            (64, 512, 400, 300),
+            (673, 118, 400, 300),
+            (599, 566, 400, 300)
+        ]
+    }
+}
+
+DEFAULT_LAYOUTS = {
+    "1x2": LAYOUT_1x2,
+    "2x1": LAYOUT_2x1,
+    "2x2": LAYOUT_2x2,
+    "4x1": LAYOUT_4x1,
+}
+
 def get_layout_config(layout_type):
-    """Lấy cấu hình padding cho từng layout."""
-    configs = {
+    """Lấy cấu hình cho từng layout."""
+    # Ưu tiên tìm trong CUSTOM_LAYOUTS
+    if layout_type in CUSTOM_LAYOUTS:
+        return CUSTOM_LAYOUTS[layout_type]
+    return DEFAULT_LAYOUTS.get(layout_type, LAYOUT_1x2)
+
+def get_all_layouts():
+    """Trả về tất cả layouts (mặc định + custom)."""
+    all_layouts = DEFAULT_LAYOUTS.copy()
+    all_layouts.update(CUSTOM_LAYOUTS)
+    return all_layouts
+
+def generate_frame_templates():
+    """Tạo file ảnh khung nền trong suốt/màu cho các layout nếu chưa có."""
+    os.makedirs("templates", exist_ok=True)
+    os.makedirs("templates/custom", exist_ok=True)
+    
+    layouts = {
         "1x2": LAYOUT_1x2,
         "2x1": LAYOUT_2x1,
         "2x2": LAYOUT_2x2,
         "4x1": LAYOUT_4x1,
     }
-    return configs.get(layout_type, LAYOUT_1x2)  # Default là 1x2
+    # Xử lý các custom layouts (Lưu vào thư mục riêng)
+    for name, cfg in CUSTOM_LAYOUTS.items():
+        filename = f"templates/custom/frame_{name}.png"
+        if not os.path.exists(filename):
+            print(f"Creating custom frame: {filename}")
+            w, h = cfg["CANVAS_W"], cfg["CANVAS_H"]
+            frame = np.zeros((h, w, 4), dtype=np.uint8)
+            frame[:] = [138, 154, 112, 255] # Sage Green
+            cv2.putText(frame, f"CUSTOM: {name}", (50, h - 50), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255, 255), 2)
+            cv2.imwrite(filename, frame)
+    
+    # Xử lý các mặc định
+    for name, cfg in layouts.items():
+        filename = f"templates/frame_{name}.png"
+        if not os.path.exists(filename):
+            print(f"Creating default frame: {filename}")
+            w, h = cfg["CANVAS_W"], cfg["CANVAS_H"]
+            frame = np.zeros((h, w, 4), dtype=np.uint8)
+            frame[:] = [138, 154, 112, 255] # Sage Green
+            cv2.putText(frame, f"DEFAULT: {name}", (50, h - 50), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255, 255), 2)
+            cv2.imwrite(filename, frame)
 
-# ==========================================
-# GHI CHÚ
-# ==========================================
-# PAD_TOP: Bì phía trên - thường để nhỏ hoặc vừa phải
-# PAD_BOTTOM: Bì phía dưới - thường để rộng hơn cho logo/watermark
-# PAD_LEFT: Bì bên trái
-# PAD_RIGHT: Bì bên phải
-# GAP: Khoảng cách giữa các ảnh - có thể thêm họa tiết trang trí
-
-# VÍ DỤ TINH CHỈNH:
-# - Muốn bì dưới rộng hơn để đặt logo: PAD_BOTTOM = 150
-# - Muốn bì trái/phải rộng hơn: PAD_LEFT = 50, PAD_RIGHT = 50
-# - Muốn ảnh gần nhau hơn: GAP = 10
-# - Muốn ảnh xa nhau hơn: GAP = 30
+if __name__ == "__main__":
+    generate_frame_templates()
+    print("Xong! Các file khung đã được cập nhật tại thư mục /templates")
