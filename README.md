@@ -1,10 +1,10 @@
-﻿# 📸 PHOTOBOOTH MASTER - PHIÊN BẢN MODULAR V2.0
+﻿# PHOTOBOOTH MASTER - PHIÊN BẢN MODULAR V2.0
 
 Chào mừng bạn đến với hệ thống Photobooth chuyên nghiệp nhất. Phiên bản này đã được tái cấu trúc hoàn toàn (Refactored) giúp bạn dễ dàng quản lý, tùy chỉnh giao diện và mở rộng tính năng.
 
 ---
 
-## �️ QUY TRÌNH THIẾT LẬP (3 BƯỚC)
+## QUY TRÌNH THIẾT LẬP (4 BƯỚC)
 
 Để ứng dụng vận hành hoàn hảo, hãy thực hiện theo đúng thứ tự sau:
 
@@ -24,24 +24,29 @@ Trước khi chạy máy, bạn cần khai báo các thông tin về ngân hàng
    - **Cloudinary:** Để tự động upload ảnh lên mạng sau khi chụp.
 5. Bấm **Lưu cấu hình**. Mọi thông tin sẽ được chuẩn hóa vào file `config.json`.
 
-### Bước 3: Tinh chỉnh khung ảnh (`frame_editor.py`)
-Đây là công cụ giúp bạn thiết kế "bì" và "lưới" ảnh một cách trực quan (Real-time).
-1. Chạy lệnh: `python frame_editor.py`
-2. **Chọn kiểu lưới:** (1x2, 2x1, 2x2, 4x1) ở thanh phía trên.
-3. **Kéo thanh trượt:** Ở bên trái để chỉnh độ dày bì (Padding), khoảng cách ảnh (Gap).
-4. **Copy Code:** Khi đã ưng ý, copy đoạn mã ở ô "CODE DỰ KIẾN".
-5. **Dán vào file:** Mở `frame_config.py` và dán đè dữ liệu mới vào kiểu lưới tương ứng.
+### Bước 3: Thiết lập Camera (`setup_camera.py`)
+Công cụ giúp bạn chọn và cấu hình camera phù hợp.
+1. Chạy lệnh: `python setup_camera.py`
+2. Chọn camera từ danh sách (Laptop webcam, Iriun, HDMI capture, ...)
+3. Điều chỉnh độ phân giải (1280x720 khuyến nghị)
+4. Bấm **Lưu** để lưu cài đặt vào `camera_settings.json`
+
+### Bước 4: Tinh chỉnh khung ảnh (Tùy chọn)
+Sử dụng Frame Editor để thiết kế khung ảnh tùy chỉnh.
+1. Chọn kiểu lưới: (1x2, 2x1, 2x2, 4x1)
+2. Kéo thanh trượt để chỉnh độ dày bì (Padding), khoảng cách ảnh (Gap)
+3. Lưu layout custom để sử dụng
 
 ---
 
-## � VẬN HÀNH ỨNG DỤNG
+## VẬN HÀNH ỨNG DỤNG
 
 Tùy vào nhu cầu sử dụng, bạn có 2 lựa chọn để khởi động hệ thống chính:
 
-### 1. Chế độ Kinh doanh (`main.py`)
+### 1. Chế độ Kinh doanh (`main_app.py`)
 Dành cho việc kinh doanh thu phí tự động.
 - **Quy trình:** Chào mừng -> Chọn lưới & giá -> Quét mã QR thanh toán -> Chờ xác nhận tiền từ Casso -> Chụp ảnh.
-- **Chạy lệnh:** `python main.py`
+- **Chạy lệnh:** `python main_app.py`
 
 ### 2. Chế độ Sự kiện / Miễn phí (`main_free.py`)
 Dành cho tiệc cưới, sinh nhật hoặc chạy demo test máy.
@@ -50,41 +55,93 @@ Dành cho tiệc cưới, sinh nhật hoặc chạy demo test máy.
 
 ---
 
-## 📁 CẤU TRÚC HỆ THỐNG MỚI
+## CẤU TRÚC HỆ THỐNG MỚI (MODULAR)
 
 Dự án được tách ra thành các module chuyên biệt:
 
-### 🧠 Bộ não và Điều khiển
-- **`main_app.py`**: Trái tim của hệ thống. Nơi điều phối các module con và quản lý quy trình (Workflow).
-- **`configs.py`**: Chứa các hằng số hệ thống và hàm load dữ liệu từ `config.json`.
-
-### �️ Bộ công cụ hỗ trợ
-- **`utils.py`**: Xử lý logic thô (cắt ảnh về tỷ lệ 3:2, tạo mã QR, kiểm tra máy in).
-- **`workers.py`**: Các công nhân chạy ngầm (Upload ảnh lên Cloud, check tiền từ Casso) giúp phần mềm không bị giật lag.
-- **`ui_components.py`**: Bản thiết kế giao diện (Màn hình carousel ảnh mẫu, hộp thoại quét mã tải ảnh).
-
-### 🎨 Quản lý khung (Layouts)
-- **`frame_config.py`**: Nơi lưu trữ các con số về padding, gap, canvas size.
-- **`frame_editor.py`**: Công cụ chỉnh sửa khung trực quan bằng thanh trượt.
+```
+photobooth2/
+├── main_app.py              # Entry point chế độ kinh doanh
+├── main_free.py             # Entry point chế độ miễn phí
+├── setup_admin.py           # Công cụ cấu hình admin
+├── setup_camera.py          # Công cụ thiết lập camera
+│
+├── config/                  # Cấu hình hệ thống
+│   ├── settings.py          # Hằng số, load config.json
+│   └── frame_config.py      # Cấu hình khung ảnh & layouts
+│
+├── modules/                 # Logic xử lý
+│   └── utils.py             # Hàm tiện ích (cắt ảnh, QR, printer)
+│
+├── ui/                      # Giao diện người dùng
+│   ├── ui_main.py           # Giao diện chính PhotoboothApp
+│   └── ui_components.py     # Components (Carousel, Dialog, ...)
+│
+├── workers/                 # Xử lý ngầm (Background)
+│   └── background_workers.py # Upload Cloud, Check Casso
+│
+├── templates/               # Khung ảnh PNG
+├── sample_photos/           # Ảnh mẫu cho carousel
+├── output/                  # Ảnh đầu ra
+│
+├── config.json              # File cấu hình (tự động tạo)
+├── camera_settings.json     # Cài đặt camera (tự động tạo)
+└── requirements.txt         # Thư viện Python cần thiết
+```
 
 ---
 
-## 💡 LƯU Ý KHI THAY ĐỔI CODE
+## CHI TIẾT CÁC MODULE
+
+### config/ - Cấu hình
+- **`settings.py`**: Chứa các hằng số hệ thống và hàm load dữ liệu từ `config.json`
+- **`frame_config.py`**: Lưu trữ các con số về padding, gap, canvas size cho từng layout
+
+### modules/ - Xử lý logic
+- **`utils.py`**: Xử lý logic thô (cắt ảnh về tỷ lệ 3:2, tạo mã QR, kiểm tra máy in)
+
+### ui/ - Giao diện
+- **`ui_main.py`**: Class PhotoboothApp chính, quản lý các màn hình
+- **`ui_components.py`**: Bản thiết kế giao diện (Carousel ảnh mẫu, hộp thoại QR)
+
+### workers/ - Xử lý ngầm
+- **`background_workers.py`**: Các thread chạy ngầm (Upload Cloudinary, Check Casso)
+
+---
+
+## LƯU Ý KHI THAY ĐỔI CODE
 
 Hệ thống được thiết kế theo nguyên tắc "Tách biệt mối quan tâm":
 
-1. **Muốn đổi logic cắt ảnh?** Hãy sửa `utils.py`. `main_app` sẽ tự động gọi logic mới.
-2. **Muốn đổi ngân hàng?** Dùng `setup_admin.py`. Không cần chạm vào code.
-3. **Muốn đổi màu sắc/font chữ?** Hãy tìm stylesheet trong `main_app.py`.
-4. **Muốn đổi khung nền trang trí?** Hãy thay các file PNG trong thư mục `templates/`.
+1. **Muốn đổi logic cắt ảnh?** Sửa `modules/utils.py`
+2. **Muốn đổi ngân hàng/giá?** Dùng `setup_admin.py` hoặc sửa `config.json`
+3. **Muốn đổi camera?** Dùng `setup_camera.py`
+4. **Muốn đổi màu sắc/font chữ?** Sửa stylesheet trong `ui/ui_main.py`
+5. **Muốn đổi khung nền?** Thay các file PNG trong thư mục `templates/`
+6. **Muốn thêm layout mới?** Sửa `config/frame_config.py`
 
 ---
 
-## � HỖ TRỢ & BẢO TRÌ
+## HỖ TRỢ & XỬ LÝ LỖI
 
-- Nếu gặp lỗi **ImportError**: Hãy kiểm tra lại bạn đã cài đủ thư viện trong `requirements.txt` chưa.
-- Nếu **Camera không lên**: Kiểm tra `CAMERA_INDEX` trong `configs.py` (thường là 0 hoặc 1).
-- Nếu **Không nhận tiền**: Kiểm tra lại Casso API Key trong `setup_admin.py`.
+| Lỗi | Giải pháp |
+|-----|-----------|
+| **ImportError** | Kiểm tra đã cài đủ thư viện: `pip install -r requirements.txt` |
+| **Camera không lên** | Chạy `python setup_camera.py` để chọn đúng camera |
+| **Không nhận tiền** | Kiểm tra Casso API Key trong `setup_admin.py` |
+| **Ảnh không upload** | Kiểm tra Cloudinary API trong `setup_admin.py` |
+| **Lỗi encoding terminal** | Đã được xử lý trong phiên bản mới |
 
 ---
+
+## CHANGELOG V2.0
+
+- **Tái cấu trúc mô-đun**: Tách code thành các module chuyên biệt
+- **Camera Setup**: Thêm công cụ `setup_camera.py` để chọn camera dễ dàng
+- **Custom Layouts**: Hỗ trợ tạo và lưu layout tùy chỉnh
+- **Free Mode cải tiến**: Ghi video trong quá trình chụp
+- **Sửa lỗi encoding**: Không còn lỗi Unicode trên Windows terminal
+
+---
+
 *Phiên bản được tối ưu hóa cho trải nghiệm người dùng và lập trình viên.*

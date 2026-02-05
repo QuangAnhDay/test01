@@ -23,10 +23,12 @@ from PyQt5.QtWidgets import (QApplication, QMessageBox, QPushButton, QWidget,
                              QLabel, QVBoxLayout, QHBoxLayout, QFrame, QGridLayout)
 from PyQt5.QtCore import Qt, QTimer, QRect
 from PyQt5.QtGui import QPixmap, QFont, QBrush, QPalette, QImage, QPainter
-from configs import load_config, SAMPLE_PHOTOS_DIR, CAMERA_INDEX, OUTPUT_DIR, FIRST_PHOTO_DELAY, PHOTOS_TO_TAKE
-from utils import ensure_directories, convert_cv_qt, load_sample_photos
-from main_app import PhotoboothApp
-from ui_components import DownloadSingleQRDialog
+
+# Import từ cấu trúc mô-đun mới
+from config.settings import load_config, SAMPLE_PHOTOS_DIR, CAMERA_INDEX, OUTPUT_DIR, FIRST_PHOTO_DELAY, PHOTOS_TO_TAKE
+from modules.utils import ensure_directories, convert_cv_qt, load_sample_photos
+from ui.ui_main import PhotoboothApp
+from ui.ui_components import DownloadSingleQRDialog
 
 
 class FreePhotobooth(PhotoboothApp):
@@ -44,15 +46,15 @@ class FreePhotobooth(PhotoboothApp):
         self.video_writer = None
         self.current_video_path = None
         
-        # Mặc định thử index 0, sau đó 1, 2 để tìm camera vật lý
-        self.current_camera_index = 0
-        
-        # Gọi constructor của class cha
+        # Đọc cấu hình camera từ setup_camera (nếu có)
+        self.camera_config = self.load_camera_config_file()
+        self.current_camera_index = self.camera_config.get("camera_index", 0)
+
+        # Gọi constructor của class cha (Khởi tạo UI, camera mặc định)
         super().__init__()
         
-        # Thử tìm camera vật lý (thường laptop camera là 0 hoặc 1, Iriun thường chiếm 0)
-        # Chúng ta sẽ thử khởi tạo lại nếu thấy Iriun, nhưng đơn giản nhất là cho phép đổi
-        self.try_next_camera()
+        # Tự động chọn camera (ưu tiên Iriun/HDMI hoặc theo config đã chọn)
+        self.auto_select_camera()
         
         # Đặt title khác để phân biệt
         self.setWindowTitle("🎉 Photobooth - MIỄN PHÍ")
@@ -71,158 +73,212 @@ class FreePhotobooth(PhotoboothApp):
         print("="*60 + "\n")
     
     def create_welcome_screen(self):
-        """Redesign welcome screen: Samples on Left (Scrolling), UI on Right."""
+        """Redesign welcome screen: Bloom Photobooth Style (Pink Theme)."""
         screen = QWidget()
         
-        # Set Topographic Background for the UI side
-        if os.path.exists("topo_bg.png"):
-            bg_pixmap = QPixmap("topo_bg.png")
-            palette = QPalette()
-            palette.setBrush(QPalette.Window, QBrush(bg_pixmap.scaled(1200, 800, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)))
-            screen.setPalette(palette)
-            screen.setAutoFillBackground(True)
-        else:
-            screen.setStyleSheet("background-color: #f4f7f6;")
+        # Main Theme Colors
+        BG_PINK = "#fdeef4"
+        ACCENT_PINK = "#d87093" # PaleVioletRed
+        BUTTON_PINK = "#f06292"
+        
+        screen.setStyleSheet(f"background-color: {BG_PINK};")
 
         main_layout = QHBoxLayout(screen)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
+        main_layout.setContentsMargins(40, 40, 40, 40)
+        main_layout.setSpacing(40)
         
-        # SAGE GREEN COLOR: #709a8a
-        SAGE_STYLE = "background-color: #709a8a; color: white; border-radius: 40px;"
-
-        # ===== LEFT SIDE (PHOTO SAMPLES) - Vertical Scrolling =====
-        collage_container = QFrame()
-        collage_container.setStyleSheet("background-color: #709a8a;")
-        collage_layout = QHBoxLayout(collage_container)
-        collage_layout.setSpacing(15)
-        collage_layout.setContentsMargins(40, 0, 40, 0)
+        # ===== LEFT SIDE: PHOTO COLLAGE =====
+        # We'll use a widget with absolute positioning to simulate the scattered look
+        left_side = QWidget()
+        left_layout = QGridLayout(left_side)
+        left_layout.setSpacing(15)
         
-        # Get photos
         photos = load_sample_photos()
-        if not photos:
-            photos = [] 
-            
-        # We'll use a timer to move these labels
-        self.scrolling_photos = []
+        if not photos: photos = []
         
-        # Create 3 scrolling columns
-        for col_idx in range(3):
-            col_container = QWidget()
-            col_container.setFixedWidth(160)
+        # Style for individual photo cards
+        card_style = """
+            border: 8px solid white;
+            background-color: white;
+            border-radius: 5px;
+        """
+        
+        # Adding some photos to the grid to create a collage feel
+        # (Using a grid is more stable than absolute positioning for different resolutions)
+        if len(photos) >= 6:
+            # Column 1
+            lbl1 = QLabel(); lbl1.setPixmap(QPixmap(photos[0]).scaled(140, 350, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation))
+            lbl1.setStyleSheet(card_style); left_layout.addWidget(lbl1, 0, 0, 3, 1)
             
-            # Sub-list of photos for this column
-            col_photos = [photos[i] for i in range(len(photos)) if i % 3 == col_idx]
-            # Triple the list to ensure smooth looping
-            col_photos = col_photos * 3
+            lbl2 = QLabel(); lbl2.setPixmap(QPixmap(photos[1]).scaled(140, 200, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation))
+            lbl2.setStyleSheet(card_style); left_layout.addWidget(lbl2, 3, 0, 2, 1)
             
-            y_offset = (col_idx * 150) % 600 # Stagger start
-            direction = 1 if col_idx != 1 else -1 # Middle column goes down, others up
+            # Column 2
+            lbl3 = QLabel(); lbl3.setPixmap(QPixmap(photos[2]).scaled(250, 250, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation))
+            lbl3.setStyleSheet(card_style); left_layout.addWidget(lbl3, 0, 1, 2, 2)
             
-            for p_path in col_photos:
-                photo_lbl = QLabel(col_container)
-                pix = QPixmap(p_path)
-                if not pix.isNull():
-                    photo_lbl.setPixmap(pix.scaled(160, 240, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation))
-                photo_lbl.setFixedSize(160, 240)
-                photo_lbl.setStyleSheet("border-radius: 20px; background-color: #ddd;")
-                
-                # Store scrolling info
-                self.scrolling_photos.append({
-                    'label': photo_lbl,
-                    'y': y_offset,
-                    'x': 0,
-                    'dir': direction,
-                    'col': col_idx
-                })
-                y_offset += 265 # 240 height + 25 spacing
+            lbl4 = QLabel(); lbl4.setPixmap(QPixmap(photos[3]).scaled(250, 250, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation))
+            lbl4.setStyleSheet(card_style); left_layout.addWidget(lbl4, 2, 1, 2, 2)
             
-            collage_layout.addWidget(col_container)
+            # Column 3
+            lbl5 = QLabel(); lbl5.setPixmap(QPixmap(photos[4]).scaled(140, 350, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation))
+            lbl5.setStyleSheet(card_style); left_layout.addWidget(lbl5, 0, 3, 3, 1)
+            
+            lbl6 = QLabel(); lbl6.setPixmap(QPixmap(photos[5]).scaled(140, 200, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation))
+            lbl6.setStyleSheet(card_style); left_layout.addWidget(lbl6, 3, 3, 2, 1)
 
-        # Timer for vertical scrolling
-        self.scroll_timer = QTimer(self)
-        self.scroll_timer.timeout.connect(self.update_vertical_scroll)
-        self.scroll_timer.start(30)
-        
-        main_layout.addWidget(collage_container, stretch=1)
+        main_layout.addWidget(left_side, stretch=2)
 
-        # ===== RIGHT SIDE (CAMERA & UI) =====
-        right_ui_panel = QWidget()
-        right_ui_layout = QVBoxLayout(right_ui_panel)
-        right_ui_layout.setSpacing(25)
-        right_ui_layout.setContentsMargins(50, 50, 50, 50)
-        right_ui_layout.setAlignment(Qt.AlignCenter)
-        
-        # 1. Title Box
-        title_box = QLabel("QuangAnhDay's Photobooth")
-        title_box.setAlignment(Qt.AlignCenter)
-        title_box.setFixedHeight(80)
-        title_box.setFixedWidth(500)
-        title_box.setStyleSheet(SAGE_STYLE + "font-size: 28px; font-weight: bold; border-radius: 40px;")
-        right_ui_layout.addWidget(title_box)
-        
-        # 2. Camera Preview (Large)
-        self.welcome_camera_label = QLabel("Đang tải camera...")
-        self.welcome_camera_label.setAlignment(Qt.AlignCenter)
-        self.welcome_camera_label.setFixedSize(540, 420)
-        self.welcome_camera_label.setStyleSheet("""
-            background-color: #709a8a; 
-            border-radius: 40px; 
-            border: 8px solid #709a8a;
+        # ===== RIGHT SIDE: THE CONTROL CARD =====
+        right_card = QFrame()
+        right_card.setFixedWidth(450)
+        right_card.setStyleSheet("""
+            QFrame {
+                background-color: white;
+                border-radius: 40px;
+            }
         """)
-        # Cho phép click vào camera để đổi index (tính năng ẩn)
-        self.welcome_camera_label.mousePressEvent = lambda e: self.try_next_camera()
-        right_ui_layout.addWidget(self.welcome_camera_label)
+        card_layout = QVBoxLayout(right_card)
+        card_layout.setContentsMargins(40, 60, 40, 60)
+        card_layout.setSpacing(20)
+        card_layout.setAlignment(Qt.AlignCenter)
         
-        # 3. Start Button
-        self.btn_start_welcome = QPushButton("Bấm để bắt đầu chụp")
-        self.btn_start_welcome.setFixedSize(450, 110)
-        self.btn_start_welcome.setStyleSheet("""
-            QPushButton {
-                background-color: #709a8a; 
+        # 1. Title "BLOOM"
+        bloom_title = QLabel("Bloom")
+        bloom_title.setStyleSheet(f"color: {ACCENT_PINK}; font-family: 'Georgia', serif; font-size: 60px; font-style: italic;")
+        bloom_title.setAlignment(Qt.AlignCenter)
+        card_layout.addWidget(bloom_title)
+        
+        # 2. Title "PHOTOBOOTH"
+        pb_title = QLabel("PHOTOBOOTH")
+        pb_title.setStyleSheet(f"color: {ACCENT_PINK}; font-family: 'Verdana'; font-size: 24px; letter-spacing: 5px; font-weight: bold;")
+        pb_title.setAlignment(Qt.AlignCenter)
+        card_layout.addWidget(pb_title)
+        
+        card_layout.addSpacing(20)
+        
+        # 3. Camera Preview Area
+        self.welcome_camera_label = QLabel("Loading Camera...")
+        self.welcome_camera_label.setFixedSize(350, 280)
+        self.welcome_camera_label.setAlignment(Qt.AlignCenter)
+        self.welcome_camera_label.setStyleSheet("""
+            background-color: #eee; 
+            border-radius: 20px;
+            border: 2px solid #fce4ec;
+        """)
+        self.welcome_camera_label.mousePressEvent = lambda e: self.try_next_camera()
+        card_layout.addWidget(self.welcome_camera_label, alignment=Qt.AlignCenter)
+        
+        card_layout.addStretch()
+        
+        # 4. Start Button
+        self.btn_start_welcome = QPushButton("BẮT ĐẦU CHỤP")
+        self.btn_start_welcome.setFixedSize(320, 90)
+        self.btn_start_welcome.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {BUTTON_PINK}; 
                 color: white;
-                border-radius: 55px; 
-                font-size: 30px; 
+                border-radius: 45px; 
+                font-size: 24px; 
                 font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #84af9f;
-            }
-            QPushButton:pressed {
-                background-color: #5d8476;
-            }
+            }}
+            QPushButton:hover {{
+                background-color: #f48fb1;
+            }}
+            QPushButton:pressed {{
+                background-color: #c2185b;
+            }}
         """)
         self.btn_start_welcome.clicked.connect(self.go_to_price_select)
-        right_ui_layout.addWidget(self.btn_start_welcome)
+        card_layout.addWidget(self.btn_start_welcome, alignment=Qt.AlignCenter)
         
-        # 4. Login Link
-        login_label = QLabel("Don't have an account? <span style='color: #709a8a; font-weight: bold;'>Log in</span>")
-        login_label.setAlignment(Qt.AlignCenter)
-        login_label.setStyleSheet("color: #999; font-size: 18px;")
-        right_ui_layout.addWidget(login_label)
-        
-        main_layout.addWidget(right_ui_panel, stretch=1)
+        main_layout.addWidget(right_card)
         
         self.stacked.addWidget(screen)
         self.state = "START"
 
+    def load_camera_config_file(self):
+        """Đọc file camera_settings.json."""
+        config_path = "camera_settings.json"
+        if os.path.exists(config_path):
+            try:
+                import json
+                with open(config_path, 'r') as f:
+                    return json.load(f)
+            except: pass
+        return {}
+
+    def auto_select_camera(self):
+        """Tự động tìm camera, ưu tiên cấu hình trong file settings."""
+        if hasattr(self, 'camera_timer'): self.camera_timer.stop()
+        
+        found = False
+        config_idx = self.camera_config.get("camera_index")
+        use_dshow = self.camera_config.get("use_dshow", True)
+        
+        # Danh sách index cần thử: ưu tiên index từ config trước
+        indices = [1, 2, 0, 3]
+        if config_idx is not None:
+            if config_idx in indices: indices.remove(config_idx)
+            indices.insert(0, config_idx)
+
+        print(f"[CAMERA] Dang tim camera (Thu thu tu: {indices})...")
+        
+        for idx in indices:
+            try:
+                # Thử với DSHOW (ưu tiên Windows/Iriun)
+                cap_flag = cv2.CAP_DSHOW if use_dshow else 0
+                temp_cap = cv2.VideoCapture(idx, cap_flag)
+                if not temp_cap.isOpened() and use_dshow:
+                    temp_cap = cv2.VideoCapture(idx) # Fallback
+                
+                if temp_cap.isOpened():
+                    temp_cap.read()
+                    ret, frame = temp_cap.read()
+                    if ret and frame is not None:
+                        if self.cap: self.cap.release()
+                        self.cap = temp_cap
+                        self.current_camera_index = idx
+                        
+                        # Set resolution from config
+                        w = self.camera_config.get("width", 1280)
+                        h = self.camera_config.get("height", 720)
+                        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, w)
+                        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, h)
+                        
+                        print(f"[OK] Da chon camera index: {idx} ({w}x{h})")
+                        found = True
+                        break
+                temp_cap.release()
+            except: pass
+        
+        if not found:
+            print("[WARNING] Khong tim thay camera nao hoat dong!")
+            if not self.cap or not self.cap.isOpened():
+                self.current_camera_index = 0
+                self.cap = cv2.VideoCapture(0)
+        
+        if hasattr(self, 'camera_timer'): self.camera_timer.start(30)
+
     def try_next_camera(self):
-        """Thử camera index tiếp theo (0 -> 1 -> 2 -> 0)."""
-        print(f"Switching from camera {self.current_camera_index}...")
+        """Chuyển sang camera index tiếp theo (thủ công khi chọn)."""
+        if hasattr(self, 'camera_timer'): self.camera_timer.stop()
+        print(f"[SWITCH] Dang doi camera tu index {self.current_camera_index}...")
+        
         if self.cap:
             self.cap.release()
             
-        self.current_camera_index = (self.current_camera_index + 1) % 3
-        self.cap = cv2.VideoCapture(self.current_camera_index)
+        self.current_camera_index = (self.current_camera_index + 1) % 4
+        # Thử với CAP_DSHOW trước
+        self.cap = cv2.VideoCapture(self.current_camera_index, cv2.CAP_DSHOW)
+        if not self.cap.isOpened():
+            self.cap = cv2.VideoCapture(self.current_camera_index)
+            
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
         
-        if not self.cap.isOpened():
-            # Nếu 1 hoặc 2 không được, về 0
-            self.current_camera_index = 0
-            self.cap = cv2.VideoCapture(0)
-        
         print(f"Now using camera index: {self.current_camera_index}")
+        if hasattr(self, 'camera_timer'): self.camera_timer.start(30)
 
     def update_vertical_scroll(self):
         """Move photo labels vertically to create a looping efekt."""
@@ -310,9 +366,9 @@ class FreePhotobooth(PhotoboothApp):
             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
             self.video_writer = cv2.VideoWriter(self.current_video_path, fourcc, 20.0, (1280, 720))
             self.is_recording_video = True
-            print(f"🎬 Bắt đầu ghi video: {self.current_video_path}")
+            print(f"[VIDEO] Bat dau ghi video: {self.current_video_path}")
         except Exception as e:
-            print(f"❌ Lỗi khởi tạo video: {e}")
+            print(f"[ERROR] Loi khoi tao video: {e}")
 
     def go_to_photo_select(self):
         """Override - Dừng ghi video khi chụp xong."""
@@ -320,35 +376,61 @@ class FreePhotobooth(PhotoboothApp):
             self.is_recording_video = False
             self.video_writer.release()
             self.video_writer = None
-            print("🎬 Đã dừng ghi video.")
+            print("[VIDEO] Da dung ghi video.")
         super().go_to_photo_select()
 
     def update_camera_frame(self):
         """Override - Ghi frame vào video nếu đang ghi."""
-        # Luôn đọc frame nếu đang ở các state cần camera
-        if self.state in ["START", "CAPTURING", "WAITING_CAPTURE"]:
-            ret, frame = self.cap.read()
-            if ret:
-                frame = cv2.flip(frame, 1)
-                self.current_frame = frame.copy()
-                
-                # Ghi vào video nếu đang trong phiên chụp
-                if self.is_recording_video and self.video_writer:
-                    # Resize để đảm bảo đúng kích thước video
-                    v_frame = cv2.resize(frame, (1280, 720))
-                    self.video_writer.write(v_frame)
+        try:
+            # Luôn đọc frame nếu đang ở các state cần camera
+            if self.state in ["START", "CAPTURING", "WAITING_CAPTURE"]:
+                if self.cap is None or not self.cap.isOpened():
+                    # Thử khởi tạo lại camera sau mỗi 3 giây nếu mất kết nối
+                    if not hasattr(self, '_last_camera_retry'): self._last_camera_retry = 0
+                    if datetime.datetime.now().timestamp() - self._last_camera_retry > 3:
+                        print("[CAMERA] Dang thu ket noi lai camera...")
+                        self.auto_select_camera()
+                        self._last_camera_retry = datetime.datetime.now().timestamp()
+                    return
 
-                qt_img = convert_cv_qt(frame)
-                
-                # Cập nhật cho màn hình welcome (START)
-                if self.state == "START" and hasattr(self, 'welcome_camera_label'):
-                    scaled = qt_img.scaled(self.welcome_camera_label.size(), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
-                    self.welcome_camera_label.setPixmap(scaled)
-                
-                # Cập nhật cho màn hình capture (CAPTURING/WAITING_CAPTURE)
-                elif self.state in ["CAPTURING", "WAITING_CAPTURE"] and hasattr(self, 'camera_label'):
-                    scaled = qt_img.scaled(self.camera_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                    self.camera_label.setPixmap(scaled)
+                ret, frame = self.cap.read()
+                if ret and frame is not None:
+                    frame = cv2.flip(frame, 1)
+                    self.current_frame = frame.copy()
+                    
+                    # Ghi vào video nếu đang trong phiên chụp
+                    if self.is_recording_video and self.video_writer:
+                        try:
+                            # Resize để đảm bảo đúng kích thước video
+                            v_frame = cv2.resize(frame, (1280, 720))
+                            self.video_writer.write(v_frame)
+                        except Exception as ve:
+                            print(f"[WARNING] Loi ghi video: {ve}")
+
+                    qt_img = convert_cv_qt(frame)
+                    
+                    # Cập nhật cho màn hình welcome (START)
+                    if self.state == "START" and hasattr(self, 'welcome_camera_label'):
+                        scaled = qt_img.scaled(self.welcome_camera_label.size(), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+                        self.welcome_camera_label.setPixmap(scaled)
+                    
+                    # Cập nhật cho màn hình capture (CAPTURING/WAITING_CAPTURE)
+                    elif self.state in ["CAPTURING", "WAITING_CAPTURE"] and hasattr(self, 'camera_label'):
+                        scaled = qt_img.scaled(self.camera_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                        self.camera_label.setPixmap(scaled)
+                    
+                    # Reset fail count if successful
+                    self._read_fail_count = 0
+                else:
+                    # Nếu read() thất bại dù cap.isOpened() là True
+                    if not hasattr(self, '_read_fail_count'): self._read_fail_count = 0
+                    self._read_fail_count += 1
+                    if self._read_fail_count > 30: # ~1 giây liên tục lỗi
+                        print("[WARNING] Camera bi treo hoac mat tin hieu, dang khoi dong lai...")
+                        self.auto_select_camera()
+                        self._read_fail_count = 0
+        except Exception as e:
+            print(f"[WARNING] Loi trong update_camera_frame: {e}")
 
     def accept_and_print(self):
         """Override - Hiển thị QR cho cả ảnh và video."""
@@ -440,6 +522,29 @@ def main():
     # Chạy app
     return app.exec_()
 
+
+def handle_exception(exc_type, exc_value, exc_traceback):
+    """Bắt các lỗi chưa được xử lý để tránh app tự tắt đột ngột."""
+    if issubclass(exc_type, KeyboardInterrupt):
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+        return
+    
+    error_msg = "".join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+    print(f"[CRITICAL ERROR]\n{error_msg}")
+    
+    # Hiển thị thông báo lỗi cho người dùng
+    msg = QMessageBox()
+    msg.setIcon(QMessageBox.Critical)
+    msg.setWindowTitle("Lỗi Hệ Thống")
+    msg.setText("Ứng dụng gặp lỗi và cần khởi động lại.")
+    msg.setInformativeText(str(exc_value))
+    msg.setDetailedText(error_msg)
+    msg.setStandardButtons(QMessageBox.Ok)
+    msg.exec_()
+    sys.exit(1)
+
+import traceback
+sys.excepthook = handle_exception
 
 if __name__ == "__main__":
     sys.exit(main())

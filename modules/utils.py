@@ -12,7 +12,7 @@ import subprocess
 import qrcode
 from io import BytesIO
 from PyQt5.QtGui import QImage, QPixmap
-from configs import TEMPLATE_DIR, OUTPUT_DIR, SAMPLE_PHOTOS_DIR
+from config.settings import TEMPLATE_DIR, OUTPUT_DIR, SAMPLE_PHOTOS_DIR
 
 
 # ==========================================
@@ -39,19 +39,23 @@ def create_sample_templates():
     """Tạo các template mẫu."""
     width, height = 1280, 720
     
+    # Tạo thư mục con 1x2 để test
+    test_dir = os.path.join(TEMPLATE_DIR, "1x2")
+    os.makedirs(test_dir, exist_ok=True)
+    
     # Template 1: Khung đỏ đơn giản
     img = np.zeros((height, width, 4), dtype=np.uint8)
     cv2.rectangle(img, (0, 0), (width, height), (0, 0, 255, 255), 40)
     cv2.putText(img, "PHOTOBOOTH", (width//2 - 200, 60), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255, 255), 4)
     img[80:height-40, 40:width-40] = [0, 0, 0, 0]
-    cv2.imwrite(os.path.join(TEMPLATE_DIR, "frame_red.png"), img)
+    cv2.imwrite(os.path.join(test_dir, "frame_red_test.png"), img)
     
     # Template 2: Khung xanh
     img2 = np.zeros((height, width, 4), dtype=np.uint8)
     cv2.rectangle(img2, (0, 0), (width, height), (255, 100, 0, 255), 40)
     cv2.putText(img2, "MEMORIES", (width//2 - 150, 60), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255, 255), 4)
     img2[80:height-40, 40:width-40] = [0, 0, 0, 0]
-    cv2.imwrite(os.path.join(TEMPLATE_DIR, "frame_blue.png"), img2)
+    cv2.imwrite(os.path.join(test_dir, "frame_blue_test.png"), img2)
 
 
 def create_sample_photos():

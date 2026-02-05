@@ -11,8 +11,8 @@ from io import BytesIO
 from PyQt5.QtWidgets import QDialog, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QPixmap
-from workers import CloudinaryUploadThread, CloudinaryLandingPageThread
-from utils import convert_cv_qt
+from workers.background_workers import CloudinaryUploadThread, CloudinaryLandingPageThread
+from modules.utils import convert_cv_qt
 
 
 # ==========================================

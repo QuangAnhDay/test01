@@ -12,7 +12,7 @@ import cloudinary
 import cloudinary.uploader
 from PyQt5.QtCore import QThread, pyqtSignal
 from PyQt5.QtGui import QPixmap
-from configs import APP_CONFIG
+from config.settings import APP_CONFIG
 
 
 # ==========================================

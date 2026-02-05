@@ -8,10 +8,15 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
 from PyQt5.QtCore import Qt, QSize, QPoint, QRect
 from PyQt5.QtGui import QImage, QPixmap, QFont, QPainter, QPen, QColor
 
+# Thêm thư mục gốc của project vào path để import đúng
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 # Import default configs
 try:
-    import frame_config
-    from frame_config import LAYOUT_1x2, LAYOUT_2x1, LAYOUT_2x2, LAYOUT_4x1
+    from config import frame_config
+    from config.frame_config import LAYOUT_1x2, LAYOUT_2x1, LAYOUT_2x2, LAYOUT_4x1
     DEFAULT_CONFIGS = {
         "1x2": LAYOUT_1x2,
         "2x1": LAYOUT_2x1,
@@ -162,6 +167,11 @@ class FrameEditor(QMainWindow):
         self.btn_add_slot.hide()
         top_layout.addWidget(self.btn_add_slot)
 
+        self.btn_save_custom = QPushButton("💾 LƯU THÀNH MẪU MỚI (CUSTOM)")
+        self.btn_save_custom.setStyleSheet("background-color: #2ecc71; color: white; font-weight: bold; padding: 10px 20px; border-radius: 5px; margin-left: 10px;")
+        self.btn_save_custom.clicked.connect(self.save_custom_layout_action)
+        top_layout.addWidget(self.btn_save_custom)
+
         btn_gen = QPushButton("🛠️ TẠO FILE KHUNG")
         btn_gen.setStyleSheet("background-color: #f39c12; color: white; font-weight: bold; padding: 10px; margin-left:10px;")
         btn_gen.clicked.connect(self.run_frame_gen)
@@ -294,27 +304,11 @@ class FrameEditor(QMainWindow):
             pt, pb, pl, pr = self.config["PAD_TOP"], self.config["PAD_BOTTOM"], self.config["PAD_LEFT"], self.config["PAD_RIGHT"]
             gap = self.config["GAP"]
             
-            # Tính toán các ô ảnh tự động
-            avail_w = w - pl - pr
-            avail_h = h - pt - pb
-            
-            slots = []
-            if self.current_layout_type == "1x2":
-                sw, sh = avail_w, (avail_h - gap) // 2
-                slots = [(pl, pt), (pl, pt + sh + gap)]
-            elif self.current_layout_type == "2x1":
-                sw, sh = (avail_w - gap) // 2, avail_h
-                slots = [(pl, pt), (pl + sw + gap, pt)]
-            elif self.current_layout_type == "2x2":
-                sw, sh = (avail_w - gap) // 2, (avail_h - gap) // 2
-                slots = [(pl, pt), (pl+sw+gap, pt), (pl, pt+sh+gap), (pl+sw+gap, pt+sh+gap)]
-            elif self.current_layout_type == "4x1":
-                sw, sh = avail_w, (avail_h - 3*gap) // 4
-                for i in range(4): slots.append((pl, pt + i*(sh+gap)))
+            slots, sw_default, sh_default = self.calculate_current_slots()
             
             for i, (sx, sy) in enumerate(slots):
-                cv2.rectangle(canvas, (sx, sy), (sx + sw, sy + sh), (112, 154, 112), -1)
-                cv2.rectangle(canvas, (sx, sy), (sx + sw, sy + sh), (255, 255, 255), 2)
+                cv2.rectangle(canvas, (sx, sy), (sx + sw_default, sy + sh_default), (112, 154, 112), -1)
+                cv2.rectangle(canvas, (sx, sy), (sx + sw_default, sy + sh_default), (255, 255, 255), 2)
                 cv2.putText(canvas, f"Photo {i+1}", (sx+20, sy+50), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255,255,255), 3)
         else:
             # Chế độ CUSTOM: Vẽ các ô từ self.slots
@@ -341,10 +335,125 @@ class FrameEditor(QMainWindow):
         pixmap = QPixmap.fromImage(qt_img).scaled(view_w-20, view_h-20, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         self.preview_label.setPixmap(pixmap)
 
+    def calculate_current_slots(self):
+        """Tính toán danh sách các ô ảnh (x, y, w, h) dựa trên config hiện tại."""
+        w, h = self.config["CANVAS_W"], self.config["CANVAS_H"]
+        pt, pb, pl, pr = self.config["PAD_TOP"], self.config["PAD_BOTTOM"], self.config["PAD_LEFT"], self.config["PAD_RIGHT"]
+        gap = self.config["GAP"]
+        
+        avail_w = w - pl - pr
+        avail_h = h - pt - pb
+        
+        slots = []
+        sw, sh = 0, 0
+        
+        if self.current_layout_type == "1x2":
+            sw, sh = avail_w, (avail_h - gap) // 2
+            slots = [(pl, pt, sw, sh), (pl, pt + sh + gap, sw, sh)]
+        elif self.current_layout_type == "2x1":
+            sw, sh = (avail_w - gap) // 2, avail_h
+            slots = [(pl, pt, sw, sh), (pl + sw + gap, pt, sw, sh)]
+        elif self.current_layout_type == "2x2":
+            sw, sh = (avail_w - gap) // 2, (avail_h - gap) // 2
+            slots = [
+                (pl, pt, sw, sh), (pl + sw + gap, pt, sw, sh),
+                (pl, pt + sh + gap, sw, sh), (pl + sw + gap, pt + sh + gap, sw, sh)
+            ]
+        elif self.current_layout_type == "4x1":
+            sw, sh = avail_w, (avail_h - 3 * gap) // 4
+            for i in range(4):
+                slots.append((pl, pt + i * (sh + gap), sw, sh))
+        
+        # Trả về định dạng thuận tiện cho vẽ và cho lưu
+        if self.is_custom_mode:
+            return self.slots, 0, 0 # Custom đã lưu sẵn (x,y,w,h)
+        return [(s[0], s[1]) for s in slots], sw, sh
+
+    def save_custom_layout_action(self):
+        """Thực hiện lưu cấu hình custom, tạo folder và lưu ảnh mold."""
+        try:
+            from config import frame_config
+            
+            # 1. Chuẩn bị danh sách slots (x, y, w, h)
+            if self.is_custom_mode:
+                save_slots = self.slots
+            else:
+                # Chuyển đổi từ padding sang slots cụ thể
+                calculated_slots_info, sw, sh = self.calculate_current_slots()
+                save_slots = [(pos[0], pos[1], sw, sh) for pos in calculated_slots_info]
+
+            if not save_slots:
+                QMessageBox.warning(self, "Lỗi", "Không có ô ảnh nào để lưu!")
+                return
+
+            # 2. Tìm tên folder custom tiếp theo (custom1, custom2, ...)
+            base_templates_dir = "templates"
+            os.makedirs(base_templates_dir, exist_ok=True)
+            
+            i = 1
+            while os.path.exists(os.path.join(base_templates_dir, f"custom{i}")):
+                i += 1
+            
+            folder_name = f"custom{i}"
+            new_folder_path = os.path.join(base_templates_dir, folder_name)
+            os.makedirs(new_folder_path, exist_ok=True)
+
+            # 3. Chuẩn bị config
+            custom_name = f"Custom_{folder_name.capitalize()}"
+            config_to_save = {
+                "CANVAS_W": self.config["CANVAS_W"],
+                "CANVAS_H": self.config["CANVAS_H"],
+                "SLOTS": save_slots
+            }
+
+            # 4. Lưu vào frame_config.py
+            success = frame_config.save_custom_layout(custom_name, config_to_save)
+            if not success:
+                raise Exception("Không thể ghi vào file frame_config.py")
+
+            # 5. Tạo ảnh "mold" (khuôn mẫu chuẩn tỉ lệ)
+            w, h = self.config["CANVAS_W"], self.config["CANVAS_H"]
+            mold = np.zeros((h, w, 3), dtype=np.uint8) + 255 # Nền trắng
+            
+            for idx, (sx, sy, sw, sh) in enumerate(save_slots):
+                # Vẽ ô ảnh (màu xám nhạt để dễ nhìn)
+                cv2.rectangle(mold, (sx, sy), (sx + sw, sy + sh), (220, 220, 220), -1)
+                cv2.rectangle(mold, (sx, sy), (sx + sw, sy + sh), (0, 0, 0), 2)
+                # Text thông tin kích thước
+                info_text = f"P{idx+1}: {sw}x{sh}"
+                cv2.putText(mold, info_text, (sx + 10, sy + 40), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (50, 50, 50), 2)
+
+            # Lưu ảnh mold chuẩn vào folder mới
+            cv2.imwrite(os.path.join(new_folder_path, "mold.png"), mold)
+
+            # 6. Tạo file khung mẫu mặc định để ứng dụng nhận diện ngay
+            frame_img = np.zeros((h, w, 4), dtype=np.uint8)
+            frame_img[:] = [138, 154, 112, 255] # Màu Sage Green mặc định
+            cv2.putText(frame_img, f"Mẫu: {custom_name}", (50, h - 80), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 255, 255), 3)
+            cv2.putText(frame_img, f"FOLDER: {folder_name}", (50, h - 30), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255, 200), 2)
+            
+            frame_filename = f"frame_{custom_name}.png"
+            cv2.imwrite(os.path.join(new_folder_path, frame_filename), frame_img)
+
+            QMessageBox.information(self, "Tạo thành công", 
+                                  f"Đã lưu mẫu {custom_name} thành công!\n\n"
+                                  f"📍 Thư mục: {new_folder_path}\n"
+                                  f"🖼️ File 'mold.png' đã được tạo với kích thước đúng tỉ lệ.\n"
+                                  f"Hãy dùng file này để thiết kế khung theo ý thích của bạn.")
+            
+            # Cập nhật lại các file template chung
+            self.run_frame_gen()
+
+        except Exception as e:
+            QMessageBox.critical(self, "Lỗi", f"Không thể lưu cấu hình: {e}")
+
     def run_frame_gen(self):
         """Chạy script tạo file khung ảnh."""
         try:
-            import frame_config
+            from config import frame_config
             frame_config.generate_frame_templates()
             QMessageBox.information(self, "Thành công", "Đã tạo/cập nhật các file khung ảnh trong thư mục /templates")
         except Exception as e:
