@@ -1,7 +1,7 @@
 {
-    "camera_index": 0,
+    "camera_index": 1,
     "use_dshow": true,
     "use_compat": false,
     "width": 1280,
-    "height": 720
+    "height": 960
 }

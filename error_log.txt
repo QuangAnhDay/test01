@@ -1,0 +1,14 @@
+﻿.venv\Scripts\python.exe : QPaintDevice: 
+Cannot destroy paint device that is being 
+painted
+At line:1 char:32
++ ... NG='utf-8'; .venv\Scripts\python.exe 
+-c "import src.app; src.app.main ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: 
+    (QPaintDevice: C...s being painted:Str  
+  ing) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommand 
+   Error
+ 

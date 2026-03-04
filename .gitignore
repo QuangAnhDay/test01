@@ -22,3 +22,8 @@ output/
 # OS
 .DS_Store
 Thumbs.db
+
+# Output and temporary files
+*.jpg
+*.png
+custom_layouts.json
