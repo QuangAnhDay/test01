@@ -78,22 +78,6 @@ def generate_frame_templates():
                     print(f"[CLEANUP] Removing orphaned template: {orphan_path} (layout '{layout_name}' no longer exists)")
                     os.remove(orphan_path)
 
-    # 2. Xử lý layout mặc định (chỉ còn 4x1)
-    layouts = {
-        "4x1": LAYOUT_4x1,
-    }
-    for name, cfg in layouts.items():
-        layout_dir = os.path.join(base_dir, name)
-        os.makedirs(layout_dir, exist_ok=True)
-        filename = os.path.join(layout_dir, f"frame_{name}.png")
-        if not os.path.exists(filename):
-            print(f"Creating default frame: {filename}")
-            w, h = cfg["CANVAS_W"], cfg["CANVAS_H"]
-            frame = np.zeros((h, w, 4), dtype=np.uint8)
-            frame[:] = [138, 154, 112, 255]  # Sage Green
-            cv2.putText(frame, f"DEFAULT: {name}", (50, h - 50),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255, 255), 2)
-            cv2.imwrite(filename, frame)
 
 
 def crop_to_aspect_wh(img, target_w, target_h):
@@ -256,7 +240,6 @@ def load_templates_for_layout(layout_type, selected_frame_count):
     
     if layout_group == "vertical" or layout_type == "4x1":
         search_dirs.append(os.path.join(TEMPLATE_DIR, "vertical"))
-        search_dirs.append(os.path.join(TEMPLATE_DIR, "4x1"))
     else:
         search_dirs.append(os.path.join(TEMPLATE_DIR, "custom"))
 
@@ -292,7 +275,6 @@ def load_all_templates_for_group(group_name):
     
     if group_name == "vertical":
         search_dirs.append(os.path.join(TEMPLATE_DIR, "vertical"))
-        search_dirs.append(os.path.join(TEMPLATE_DIR, "4x1"))
     else:
         search_dirs.append(os.path.join(TEMPLATE_DIR, "custom"))
 

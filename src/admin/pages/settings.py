@@ -202,7 +202,7 @@ class CameraSetupApp(QMainWindow):
 
         if self.cap and self.cap.isOpened():
             if use_compat:
-                self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+                # Tránh set FOURCC cho Virtual Camera vì dễ gây treo phần mềm
                 self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
                 self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
             else:
@@ -213,8 +213,8 @@ class CameraSetupApp(QMainWindow):
             self.warmup_count = 0
             self.status_label.setText(f"Status: Đang chạy Camera {index}")
 
-            # Warmup: Đọc bỏ vài frame đầu (nhiều webcam cần khởi động)
-            for _ in range(8):
+            # Warmup: Đọc bỏ vài frame đầu (Giảm xuống 2 để chống treo)
+            for _ in range(2):
                 self.cap.read()
 
             self.timer.start(50)

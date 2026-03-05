@@ -279,10 +279,7 @@ class AdminSetup(QMainWindow):
             group_dir = os.path.join(TEMPLATE_DIR, group_name)
             if os.path.exists(group_dir):
                 template_groups.append(group_name)
-        # Thêm thư mục 4x1 nếu tồn tại (backward compatibility)
-        fourx1_dir = os.path.join(TEMPLATE_DIR, "4x1")
-        if os.path.exists(fourx1_dir) and "4x1" not in template_groups:
-            template_groups.append("4x1")
+
         self.temp_layout_combo.addItems(template_groups)
         self.temp_layout_combo.blockSignals(False)
         self.load_template_files() # Load file cho nhóm đầu tiên
@@ -330,11 +327,10 @@ class AdminSetup(QMainWindow):
                 if lgroup == "custom":
                     valid_layout_names.add(lname)
         
-        # Quét thư mục nhóm (vertical, custom, hoặc 4x1)
+        # Quét thư mục nhóm (vertical, custom)
         search_dirs = []
         if group_name == "vertical":
             search_dirs.append(os.path.join(TEMPLATE_DIR, "vertical"))
-            search_dirs.append(os.path.join(TEMPLATE_DIR, "4x1"))
         else:
             search_dirs.append(os.path.join(TEMPLATE_DIR, group_name))
         

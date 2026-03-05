@@ -75,7 +75,7 @@ from src.photobooth.hooks.flow_controller import FlowController
 # STYLESHEET TOÀN CỤC
 # ==========================================
 GLOBAL_STYLESHEET = """
-    QMainWindow { background-color: #1a1a2e; }
+    QMainWindow { background-color: #F5EBEC; }
     QLabel { 
         color: white; 
         font-family: 'Arial', 'Tahoma', 'Segoe UI', sans-serif;

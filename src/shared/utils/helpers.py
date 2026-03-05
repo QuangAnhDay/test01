@@ -37,7 +37,7 @@ def create_sample_templates():
     """Tạo các template mẫu."""
     width, height = 1280, 720
 
-    test_dir = os.path.join(TEMPLATE_DIR, "4x1")
+    test_dir = os.path.join(TEMPLATE_DIR, "vertical")
     os.makedirs(test_dir, exist_ok=True)
 
     # Template 1: Khung đỏ đơn giản

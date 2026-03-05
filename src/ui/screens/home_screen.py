@@ -28,7 +28,7 @@ class HomeScreen(QWidget):
     def setup_ui(self):
         """Thiết lập bố cục giao diện chính"""
         root_layout = QVBoxLayout(self)
-        root_layout.setContentsMargins(12, 12, 12, 12)
+        root_layout.setContentsMargins(0, 0, 0, 0)
         root_layout.setSpacing(0)
 
         content_frame = QFrame()
