@@ -356,17 +356,21 @@ class FrameEditor(QMainWindow):
                 return
 
             base_templates_dir = "templates"
-            os.makedirs(base_templates_dir, exist_ok=True)
+            custom_dir = os.path.join(base_templates_dir, "custom")
+            os.makedirs(custom_dir, exist_ok=True)
 
-            i = 1
-            while os.path.exists(os.path.join(base_templates_dir, f"custom{i}")):
-                i += 1
+            # Tìm số thứ tự Custom_N tiếp theo dựa trên custom_layouts.json
+            import re
+            existing_layouts = fc_module.load_custom_layouts()
+            existing_nums = []
+            for key in existing_layouts.keys():
+                m = re.match(r'^Custom_(\d+)$', key)
+                if m:
+                    existing_nums.append(int(m.group(1)))
+            
+            next_num = max(existing_nums) + 1 if existing_nums else 1
+            custom_name = f"Custom_{next_num}"
 
-            folder_name = f"custom{i}"
-            new_folder_path = os.path.join(base_templates_dir, folder_name)
-            os.makedirs(new_folder_path, exist_ok=True)
-
-            custom_name = f"Custom_{folder_name.capitalize()}"
             config_to_save = {
                 "CANVAS_W": self.config["CANVAS_W"],
                 "CANVAS_H": self.config["CANVAS_H"],
@@ -375,9 +379,11 @@ class FrameEditor(QMainWindow):
 
             success = fc_module.save_custom_layout(custom_name, config_to_save)
             if not success:
-                raise Exception("Không thể ghi vào file models.py")
+                raise Exception("Không thể ghi vào custom_layouts.json")
 
             w, h = self.config["CANVAS_W"], self.config["CANVAS_H"]
+            
+            # Lưu mold.png vào thư mục custom
             mold = np.zeros((h, w, 3), dtype=np.uint8) + 255
 
             for idx, (sx, sy, sw, sh) in enumerate(save_slots):
@@ -387,22 +393,13 @@ class FrameEditor(QMainWindow):
                 cv2.putText(mold, info_text, (sx + 10, sy + 40),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.8, (50, 50, 50), 2)
 
-            cv2.imwrite(os.path.join(new_folder_path, "mold.png"), mold)
-
-            frame_img = np.zeros((h, w, 4), dtype=np.uint8)
-            frame_img[:] = [138, 154, 112, 255]
-            cv2.putText(frame_img, f"Mau: {custom_name}", (50, h - 80),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 255, 255), 3)
-            cv2.putText(frame_img, f"FOLDER: {folder_name}", (50, h - 30),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255, 200), 2)
-
-            frame_filename = f"frame_{custom_name}.png"
-            cv2.imwrite(os.path.join(new_folder_path, frame_filename), frame_img)
+            mold_path = os.path.join(custom_dir, f"mold_{custom_name}.png")
+            cv2.imwrite(mold_path, mold)
 
             QMessageBox.information(self, "Tạo thành công",
                                     f"Đã lưu mẫu {custom_name} thành công!\n\n"
-                                    f"📍 Thư mục: {new_folder_path}\n"
-                                    f"🖼️ File 'mold.png' đã được tạo với kích thước đúng tỉ lệ.\n"
+                                    f"📍 Thư mục: {custom_dir}\n"
+                                    f"🖼️ File 'mold_{custom_name}.png' đã được tạo với kích thước đúng tỉ lệ.\n"
                                     f"Hãy dùng file này để thiết kế khung theo ý thích của bạn.")
 
             self.run_frame_gen()

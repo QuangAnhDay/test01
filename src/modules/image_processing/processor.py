@@ -22,11 +22,24 @@ def generate_frame_templates():
     base_dir = TEMPLATE_DIR
     os.makedirs(base_dir, exist_ok=True)
 
-    # 1. Xử lý các custom layouts
+    # 1. Xử lý các custom layouts - đặt vào đúng thư mục group
     custom_dir = os.path.join(base_dir, "custom")
+    vertical_dir = os.path.join(base_dir, "vertical")
     os.makedirs(custom_dir, exist_ok=True)
+    os.makedirs(vertical_dir, exist_ok=True)
+    
+    # Tập hợp tên layout còn tồn tại để dọn file mồ côi
+    valid_custom_names = set(CUSTOM_LAYOUTS.keys())
+    
     for name, cfg in CUSTOM_LAYOUTS.items():
-        filename = os.path.join(custom_dir, f"frame_{name}.png")
+        # Xác định thư mục dựa trên group
+        group = cfg.get("group", "custom")
+        if group == "vertical":
+            target_dir = vertical_dir
+        else:
+            target_dir = custom_dir
+        
+        filename = os.path.join(target_dir, f"frame_{name}.png")
         if not os.path.exists(filename):
             print(f"Creating custom frame: {filename}")
             w, h = cfg["CANVAS_W"], cfg["CANVAS_H"]
@@ -41,6 +54,29 @@ def generate_frame_templates():
                 x1, x2 = max(0, sx), min(w, sx + sw)
                 frame[y1:y2, x1:x2] = [0, 0, 0, 0]
             cv2.imwrite(filename, frame)
+        
+        # Xóa file ở thư mục SAI (nếu trước đó bị đặt nhầm)
+        wrong_dir = vertical_dir if group != "vertical" else custom_dir
+        wrong_path = os.path.join(wrong_dir, f"frame_{name}.png")
+        if os.path.exists(wrong_path):
+            print(f"[CLEANUP] Removing misplaced template: {wrong_path}")
+            os.remove(wrong_path)
+
+    # Dọn các file template mồ côi trong thư mục custom
+    # (template có tên frame_Custom_X.png nhưng layout Custom_X đã bị xóa)
+    import re
+    for f in os.listdir(custom_dir):
+        if f.lower().endswith(('.png', '.jpg', '.jpeg')) and f.startswith('frame_'):
+            fname_no_ext = os.path.splitext(f)[0]
+            # Trích tên layout từ tên file (frame_{layout_name}.png hoặc frame_{layout_name}_suffix.png)
+            rest = fname_no_ext[len('frame_'):]
+            m = re.match(r'^(Custom_\d+)', rest)
+            if m:
+                layout_name = m.group(1)
+                if layout_name not in valid_custom_names:
+                    orphan_path = os.path.join(custom_dir, f)
+                    print(f"[CLEANUP] Removing orphaned template: {orphan_path} (layout '{layout_name}' no longer exists)")
+                    os.remove(orphan_path)
 
     # 2. Xử lý layout mặc định (chỉ còn 4x1)
     layouts = {
@@ -260,12 +296,28 @@ def load_all_templates_for_group(group_name):
     else:
         search_dirs.append(os.path.join(TEMPLATE_DIR, "custom"))
 
+    # Lấy danh sách layout hợp lệ cho nhóm custom để lọc template mồ côi
+    valid_layout_names = None
+    if group_name == "custom":
+        all_layouts = get_all_layouts()
+        valid_layout_names = set()
+        for lname, lcfg in all_layouts.items():
+            lgroup = lcfg.get("group", "vertical" if lname == "4x1" else "custom")
+            if lgroup == "custom":
+                valid_layout_names.add(lname)
+
     # Quét tất cả file ảnh trong các thư mục
     for directory in search_dirs:
         if os.path.exists(directory):
             for f in sorted(os.listdir(directory)):
                 fpath = os.path.join(directory, f)
                 if os.path.isfile(fpath) and f.lower().endswith(('.png', '.jpg', '.jpeg')):
+                    # Với nhóm custom: chỉ load template có layout config tồn tại
+                    if valid_layout_names is not None:
+                        detected = detect_layout_from_template(fpath)
+                        if detected and detected not in valid_layout_names:
+                            continue  # Bỏ qua template mồ côi
+                    
                     full_path = os.path.abspath(fpath)
                     if full_path not in templates:
                         templates.append(full_path)

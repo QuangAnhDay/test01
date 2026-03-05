@@ -273,9 +273,19 @@ class AdminSetup(QMainWindow):
 
         self.temp_layout_combo.blockSignals(True)
         self.temp_layout_combo.clear()
-        self.temp_layout_combo.addItems(all_layouts.keys())
+        # Hiển thị nhóm template (vertical, custom) thay vì tên layout
+        template_groups = []
+        for group_name in ["vertical", "custom"]:
+            group_dir = os.path.join(TEMPLATE_DIR, group_name)
+            if os.path.exists(group_dir):
+                template_groups.append(group_name)
+        # Thêm thư mục 4x1 nếu tồn tại (backward compatibility)
+        fourx1_dir = os.path.join(TEMPLATE_DIR, "4x1")
+        if os.path.exists(fourx1_dir) and "4x1" not in template_groups:
+            template_groups.append("4x1")
+        self.temp_layout_combo.addItems(template_groups)
         self.temp_layout_combo.blockSignals(False)
-        self.load_template_files() # Load file cho layout đầu tiên
+        self.load_template_files() # Load file cho nhóm đầu tiên
 
         self.load_current_config()
 
@@ -303,43 +313,81 @@ class AdminSetup(QMainWindow):
 
 
     def load_template_files(self):
-        """Liệt kê các file trong thư mục template của layout đang chọn."""
-        layout_name = self.temp_layout_combo.currentText()
-        if not layout_name: return
+        """Liệt kê các file trong thư mục template của nhóm đang chọn."""
+        group_name = self.temp_layout_combo.currentText()
+        if not group_name: return
         
         self.template_list.clear()
-        path = os.path.join(TEMPLATE_DIR, layout_name)
-        if os.path.exists(path):
-            files = [f for f in os.listdir(path) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
-            self.template_list.addItems(files)
+        
+        # Lấy danh sách layout hợp lệ cho nhóm custom để lọc template mồ côi
+        valid_layout_names = None
+        if group_name == "custom":
+            from src.modules.image_processing.processor import detect_layout_from_template
+            all_layouts = get_all_layouts()
+            valid_layout_names = set()
+            for lname, lcfg in all_layouts.items():
+                lgroup = lcfg.get("group", "vertical" if lname == "4x1" else "custom")
+                if lgroup == "custom":
+                    valid_layout_names.add(lname)
+        
+        # Quét thư mục nhóm (vertical, custom, hoặc 4x1)
+        search_dirs = []
+        if group_name == "vertical":
+            search_dirs.append(os.path.join(TEMPLATE_DIR, "vertical"))
+            search_dirs.append(os.path.join(TEMPLATE_DIR, "4x1"))
+        else:
+            search_dirs.append(os.path.join(TEMPLATE_DIR, group_name))
+        
+        for search_dir in search_dirs:
+            if os.path.exists(search_dir):
+                files = [f for f in sorted(os.listdir(search_dir)) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+                for f in files:
+                    # Với nhóm custom: chỉ hiển thị template có layout config tồn tại
+                    if valid_layout_names is not None:
+                        fpath = os.path.join(search_dir, f)
+                        detected = detect_layout_from_template(fpath)
+                        if detected and detected not in valid_layout_names:
+                            continue  # Bỏ qua template mồ côi
+                    
+                    # Hiển thị tên file kèm thư mục để phân biệt
+                    dir_name = os.path.basename(search_dir)
+                    self.template_list.addItem(f"{dir_name}/{f}")
 
     def upload_template_file(self):
         """Mở hộp thoại chọn file và copy vào thư mục template tương ứng."""
-        layout_name = self.temp_layout_combo.currentText()
-        if not layout_name: return
+        group_name = self.temp_layout_combo.currentText()
+        if not group_name: return
+        
+        # Xác định thư mục đích
+        dest_dir = os.path.join(TEMPLATE_DIR, group_name)
         
         files, _ = QFileDialog.getOpenFileNames(self, "Chọn file ảnh Template", "", "Ảnh (*.png *.jpg *.jpeg)")
         if files:
-            dest_dir = os.path.join(TEMPLATE_DIR, layout_name)
             os.makedirs(dest_dir, exist_ok=True)
             for f in files:
                 shutil.copy(f, dest_dir)
             self.load_template_files()
-            QMessageBox.information(self, "Thành công", f"Đã thêm {len(files)} file vào {layout_name}")
+            QMessageBox.information(self, "Thành công", f"Đã thêm {len(files)} file vào {group_name}")
 
     def delete_template_file(self):
         """Xóa file template đang chọn."""
-        layout_name = self.temp_layout_combo.currentText()
         item = self.template_list.currentItem()
-        if not item or not layout_name: 
+        if not item: 
             QMessageBox.warning(self, "Thông báo", "Vui lòng chọn một file để xóa.")
             return
+        
+        # Item có format: "dir_name/filename"
+        item_text = item.text()
+        if "/" in item_text:
+            dir_name, filename = item_text.split("/", 1)
+        else:
+            dir_name = self.temp_layout_combo.currentText()
+            filename = item_text
             
-        filename = item.text()
         reply = QMessageBox.question(self, "Xác nhận", f"Bạn có chắc muốn xóa file '{filename}' không?",
                                    QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:
-            file_path = os.path.join(TEMPLATE_DIR, layout_name, filename)
+            file_path = os.path.join(TEMPLATE_DIR, dir_name, filename)
             try:
                 os.remove(file_path)
                 self.load_template_files()
