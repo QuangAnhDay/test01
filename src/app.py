@@ -824,23 +824,24 @@ class PhotoboothApp(QMainWindow):
     # ==========================================
 
     def update_interactive_button_text(self):
-        """Cập nhật chữ trên nút và trạng thái bật/tắt (Step 9)."""
+        """Cập nhật trạng thái bật/tắt của các nút (Step 9)."""
         idx = self.current_slot_index
         total = self.selected_frame_count
-        if idx < total:
-            self.btn_capture_step.setText(f"📸 CHỤP ẢNH [{idx + 1}/{total}]")
-            self.btn_capture_step.setEnabled(True)
-        else:
-            self.btn_capture_step.setText(f"✅ ĐÃ ĐỦ {total} ẢNH")
-            self.btn_capture_step.setEnabled(False)
-
+        
+        self.btn_capture_step.setEnabled(idx < total)
         self.btn_retake_last.setEnabled(idx > 0)
         self.btn_finish_interactive.setEnabled(idx == total)
 
     def start_interactive_shot(self):
         """Bắt đầu Countdown để chụp 1 tấm."""
+        # Đồng bộ kích thước lớp phủ với camera label
+        if hasattr(self, 'interactive_camera_label'):
+            self.interactive_countdown_label.setGeometry(self.interactive_camera_label.rect())
+            self.interactive_flash_overlay.setGeometry(self.interactive_camera_label.rect())
+
         self.countdown_val = 3
         self.interactive_countdown_label.setText(str(self.countdown_val))
+        self.interactive_countdown_label.show() # Hiện lớp phủ mờ + số
         self.timer_shot = QTimer()
         self.timer_shot.timeout.connect(self.interactive_countdown_tick)
         self.timer_shot.start(1000)
@@ -851,10 +852,17 @@ class PhotoboothApp(QMainWindow):
         if self.countdown_val > 0:
             self.interactive_countdown_label.setText(str(self.countdown_val))
         else:
-            self.interactive_countdown_label.setText("SMILE! 📸")
             self.timer_shot.stop()
-            # Đợi 500ms rồi chụp
-            QTimer.singleShot(500, self.take_one_photo)
+            self.interactive_countdown_label.hide() # Ẩn đếm ngược
+            
+            # Kích hoạt hiệu ứng nháy Flash
+            if hasattr(self, 'interactive_flash_overlay'):
+                self.interactive_flash_overlay.show()
+                # Ẩn flash sau 100ms
+                QTimer.singleShot(100, self.interactive_flash_overlay.hide)
+            
+            # Đợi một chút rồi chụp (150ms sau flash)
+            QTimer.singleShot(150, self.take_one_photo)
 
     def take_one_photo(self):
         """Chụp 1 pô ảnh và lấp vào slot."""
@@ -902,10 +910,8 @@ class PhotoboothApp(QMainWindow):
                 resized = cv2.resize(cropped, (sw, sh))
                 canvas[sy:sy+sh, sx:sx+sw] = resized
             else:
-                # Vẽ ô trống với chỉ số để debug
-                cv2.rectangle(canvas, (sx, sy), (sx+sw, sy+sh), (180, 180, 180), -1)
-                cv2.rectangle(canvas, (sx, sy), (sx+sw, sy+sh), (100, 100, 100), 2)
-                cv2.putText(canvas, f"Slot {i+1}", (sx+10, sy+40), cv2.FONT_HERSHEY_SIMPLEX, 1, (100, 100, 100), 2)
+                # Vẽ ô trống màu hồng nhạt như mockup (#FFDBDB -> BGR: 219, 219, 255)
+                cv2.rectangle(canvas, (sx, sy), (sx+sw, sy+sh), (219, 219, 255), -1)
         
         # Vẽ viền bao quanh toàn bộ canvas để thấy rõ biên
         cv2.rectangle(canvas, (0, 0), (bw-1, bh-1), (0, 0, 0), 5)
