@@ -48,7 +48,8 @@ from src.shared.utils.qr_utils import generate_qr_code
 from src.modules.payment.payment_service import QRImageLoaderThread, CassoCheckThread
 from src.modules.image_processing.processor import (
     generate_frame_templates, create_collage, crop_to_aspect_wh,
-    load_templates_for_layout, apply_template_overlay
+    load_templates_for_layout, apply_template_overlay,
+    load_all_templates_for_group, detect_layout_from_template
 )
 
 # Import UI components
@@ -309,91 +310,56 @@ class PhotoboothApp(QMainWindow):
         self.stacked.addWidget(screen)
 
     def go_to_custom_layout_select(self, group_filter="custom"):
-        """Hiển thị màn hình chọn mẫu theo nhóm thiết kế."""
-        from src.shared.types.models import get_all_layouts
-        all_layouts = get_all_layouts()
+        """Bỏ qua bước chọn layout, hiển thị thẳng tất cả template trong nhóm."""
+        # Reset trạng thái
+        self.selected_template_path = None
+        self.collage_image = None
+        self.merged_image = None
+        self._current_group_filter = group_filter  # Lưu lại nhóm đang chọn
         
-        # Lọc các layout thuộc nhóm filter
-        filtered_layouts = {}
-        for k, v in all_layouts.items():
-            # Phân loại group: Nếu không có thì mặc định là 'custom' (trừ 4x1)
-            layout_group = v.get("group")
-            if not layout_group:
-                layout_group = "vertical" if k == "4x1" else "custom"
-            
-            # Nếu khớp với filter thì thêm vào danh sách hiển thị
-            if layout_group == group_filter:
-                filtered_layouts[k] = v
-
-        if not filtered_layouts:
-            print(f"[DEBUG] No layouts found for group: {group_filter}")
-            QMessageBox.information(self, "Thông báo", f"Hiện chưa có layout nào trong nhóm {group_filter}.")
+        # Load TẤT CẢ templates trong nhóm (không phân biệt layout)
+        self.templates = load_all_templates_for_group(group_filter)
+        
+        if not self.templates:
+            QMessageBox.information(self, "Thông báo", 
+                f"Hiện chưa có template nào trong nhóm {group_filter}.")
             return
+        
+        # Chuyển thẳng sang màn hình chọn template (index 6)
+        self.state = "TEMPLATE_SELECT"
+        
+        # Hiển thị preview trống (chưa chọn template)
+        self.update_template_preview()
+        
+        # Populate template buttons
+        for i in reversed(range(self.template_btn_layout.count())):
+            widget = self.template_btn_layout.itemAt(i).widget()
+            if widget:
+                widget.deleteLater()
 
-        # Cập nhật trạng thái
-        self.state = "LAYOUT_SELECT"
-        title_text = "📸 CHỌN DẠNG THẺ DỌC" if group_filter == "vertical" else "🎨 CHỌN KHUNG TÙY BIẾN"
-        self.layout_title.setText(title_text)
-        self.layout_subtitle.setText(f"Danh sách các bố cục trong nhóm {group_filter}")
-
-        # Xóa các nút cũ trong layout select screen (index 4)
-        for i in reversed(range(self.layout_options_layout.count())):
-            item = self.layout_options_layout.takeAt(i)
-            if item.widget():
-                item.widget().deleteLater()
-
-        # Thêm các nút mới cho từng layout trong nhóm
-        for name, cfg in filtered_layouts.items():
+        for idx, path in enumerate(self.templates):
             btn = QPushButton()
-            btn.setFixedSize(280, 350)
-            
-            # Màu sắc theo nhóm
-            border_color = "#4361ee" if group_filter == "vertical" else "#e94560"
-            btn.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: #16213e; border: 3px solid {border_color};
-                    border-radius: 20px; color: white;
-                }}
-                QPushButton:hover {{ border-color: #06d6a0; background-color: #1a1a2e; }}
+            btn.setFixedSize(130, 100)
+            pix = QPixmap(path).scaled(110, 85, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            btn.setIcon(QIcon(pix))
+            btn.setIconSize(QSize(110, 85))
+            btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #16213e; border: 2px solid #0f3460;
+                    border-radius: 8px;
+                }
+                QPushButton:hover { border-color: #ffd700; }
             """)
-            btn_layout = QVBoxLayout(btn)
-            
-            # Icon thay đổi theo nhóm
-            icon_str = "🎞️" if group_filter == "vertical" else "🎨"
-            if name == "4x1": icon_str = "📸"
+            btn.clicked.connect(lambda checked, p=path: self.apply_template(p))
+            row = idx // 2
+            col = idx % 2
+            self.template_btn_layout.addWidget(btn, row, col)
 
-            icon = QLabel(icon_str)
-            icon.setAlignment(Qt.AlignCenter)
-            icon.setStyleSheet("font-size: 70px; background: transparent;")
-            
-            display_name = name.replace("Custom_", "").replace("_", " ")
-            label = QLabel(display_name)
-            label.setAlignment(Qt.AlignCenter)
-            label.setStyleSheet("font-size: 22px; font-weight: bold; background: transparent;")
-            
-            # Tính số ảnh (Slot count)
-            if "SLOTS" in cfg:
-                slot_count = len(cfg["SLOTS"])
-            else:
-                slot_count = 4
+        self.stacked.setCurrentIndex(6)
 
-            slot_info = QLabel(f"{slot_count} Ảnh")
-            slot_info.setAlignment(Qt.AlignCenter)
-            slot_info.setStyleSheet("font-size: 16px; color: #a8dadc; background: transparent;")
-
-            btn_layout.addWidget(icon)
-            btn_layout.addSpacing(10)
-            btn_layout.addWidget(label)
-            btn_layout.addWidget(slot_info)
-            
-            # Kết nối click - dùng closure để bắt giá trị biến
-            def make_callback(sc, nt):
-                return lambda: self.select_layout_and_price(sc, nt)
-                
-            btn.clicked.connect(make_callback(slot_count, name))
-            self.layout_options_layout.addWidget(btn)
-
-        self.stacked.setCurrentIndex(4)
+        self.template_time_left = 60
+        self.update_template_timer_label()
+        self.template_timer.start(1000)
 
 
 
@@ -764,13 +730,15 @@ class PhotoboothApp(QMainWindow):
         self.template_preview_label.setPixmap(scaled)
 
     def apply_template(self, template_path):
-        """Áp dụng template lên ảnh, giữ nguyên layout_type đã chọn trước đó."""
+        """Áp dụng template lên ảnh, tự phát hiện layout_type từ tên file template."""
         import os
         from src.shared.types.models import get_layout_config
         
-        # Sử dụng layout_type đã được set trước đó (từ select_layout_and_price)
-        # Chỉ fallback dùng tên thư mục nếu chưa có layout_type
-        if not self.layout_type:
+        # Phát hiện layout_type từ tên file template
+        detected_layout = detect_layout_from_template(template_path)
+        if detected_layout:
+            self.layout_type = detected_layout
+        elif not self.layout_type:
             folder_name = os.path.basename(os.path.dirname(template_path))
             self.layout_type = "4x1" if folder_name == "vertical" else folder_name
         

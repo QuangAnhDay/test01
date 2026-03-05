@@ -247,6 +247,66 @@ def load_templates_for_layout(layout_type, selected_frame_count):
     return templates
 
 
+def load_all_templates_for_group(group_name):
+    """Load TẤT CẢ templates trong một nhóm (vertical hoặc custom), không phân biệt layout."""
+    templates = []
+    
+    # Danh sách các thư mục cần quét
+    search_dirs = []
+    
+    if group_name == "vertical":
+        search_dirs.append(os.path.join(TEMPLATE_DIR, "vertical"))
+        search_dirs.append(os.path.join(TEMPLATE_DIR, "4x1"))
+    else:
+        search_dirs.append(os.path.join(TEMPLATE_DIR, "custom"))
+
+    # Quét tất cả file ảnh trong các thư mục
+    for directory in search_dirs:
+        if os.path.exists(directory):
+            for f in sorted(os.listdir(directory)):
+                fpath = os.path.join(directory, f)
+                if os.path.isfile(fpath) and f.lower().endswith(('.png', '.jpg', '.jpeg')):
+                    full_path = os.path.abspath(fpath)
+                    if full_path not in templates:
+                        templates.append(full_path)
+
+    print(f"[DEBUG] All templates for group '{group_name}': {templates}")
+    return templates
+
+
+def detect_layout_from_template(template_path):
+    """Phát hiện layout_type từ tên file template.
+    
+    Quy tắc: frame_{layout_type}.png hoặc frame_{layout_type}_suffix.png
+    Ví dụ: frame_4x1.png -> '4x1', frame_Custom_3_tet.png -> 'Custom_3'
+    """
+    import re
+    fname = os.path.splitext(os.path.basename(template_path))[0]
+    
+    # Bỏ prefix "frame_"
+    if fname.startswith("frame_"):
+        rest = fname[len("frame_"):]
+    else:
+        return None
+    
+    # Thử khớp với pattern Custom_N trước
+    m = re.match(r'^(Custom_\d+)', rest)
+    if m:
+        return m.group(1)
+    
+    # Thử khớp layout đơn giản như 4x1, 2x2, ...
+    m = re.match(r'^(\d+x\d+)', rest)
+    if m:
+        return m.group(1)
+    
+    # Thử khớp tên layout đơn (ví dụ: "5", "6")
+    m = re.match(r'^(\d+)', rest)
+    if m:
+        return m.group(1)
+    
+    return rest.split("_")[0] if "_" in rest else rest
+
+
 
 def apply_template_overlay(collage_image, template_path):
     """Áp dụng template lên collage."""
