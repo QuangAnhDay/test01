@@ -40,7 +40,7 @@ from src.shared.types.models import (
 )
 from src.shared.utils.helpers import (
     ensure_directories, convert_cv_qt, overlay_images,
-    load_sample_photos
+    load_sample_photos, get_rounded_pixmap
 )
 from src.shared.utils.qr_utils import generate_qr_code
 
@@ -518,7 +518,8 @@ class PhotoboothApp(QMainWindow):
                 # 3. Vẽ lên Step 9 (Interactive MỚI)
                 elif self.stacked.currentIndex() == 9 and hasattr(self, 'interactive_camera_label'):
                      scaled_mini = qt_img.scaled(self.interactive_camera_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                     self.interactive_camera_label.setPixmap(scaled_mini)
+                     rounded = get_rounded_pixmap(scaled_mini, radius=30)
+                     self.interactive_camera_label.setPixmap(rounded)
             else:
                 self._cam_read_fail_count += 1
                 if self._cam_read_fail_count > 60: # ~2 giây mất hình

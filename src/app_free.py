@@ -27,7 +27,7 @@ from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QPixmap, QFont
 
 from src.shared.types.models import load_config, FIRST_PHOTO_DELAY, PHOTOS_TO_TAKE
-from src.shared.utils.helpers import ensure_directories, convert_cv_qt, load_sample_photos
+from src.shared.utils.helpers import ensure_directories, convert_cv_qt, load_sample_photos, get_rounded_pixmap
 from src.photobooth.components.dialogs import DownloadSingleQRDialog
 from src.app import PhotoboothApp
 from src.ui.screens.home_screen import HomeScreen
@@ -61,25 +61,17 @@ class FreePhotobooth(PhotoboothApp):
         self.selected_frame_count = 4
         self.payment_confirmed = True
 
+        # Ghi đè kết nối nút START của HomeScreen để bỏ qua các bước chọn gói/mẫu
+        if hasattr(self, 'home_screen'):
+            try:
+                self.home_screen.start_clicked.disconnect()
+            except:
+                pass
+            self.home_screen.start_clicked.connect(self.go_to_capture_fast)
+
         print("\n" + "=" * 60)
         print("FREE MODE ACTIVATED")
         print("=" * 60)
-
-    def create_welcome_screen(self):
-        """Sử dụng thiết kế HomeScreen mới."""
-        self.home_screen = HomeScreen(self)
-        
-        # Sử dụng capture có sẵn nếu có
-        if hasattr(self, 'cap') and self.cap:
-            self.home_screen.camera_view.set_capture(self.cap)
-        
-        # Kết nối các tín hiệu
-        self.home_screen.start_clicked.connect(self.go_to_price_select)
-        self.home_screen.open_admin.connect(lambda: self.stacked.setCurrentIndex(8))
-        
-        # Thêm vào stacked widget
-        self.stacked.addWidget(self.home_screen)
-        self.state = "START"
 
     def _load_camera_config_file(self):
         """Đọc file camera_settings.json."""
@@ -167,13 +159,73 @@ class FreePhotobooth(PhotoboothApp):
 
     # select_layout_and_price ĐÃ ĐƯỢC DÙNG CHUNG TỪ app.py
 
-    def start_capture_session(self):
-        """Override - Bắt đầu ghi video."""
-        super().start_capture_session()
-        self.state = "CAPTURING"
-        self.stacked.setCurrentIndex(3)
+    def go_to_capture_fast(self):
+        """Bỏ qua chọn layout/template, dùng mặc định và chụp luôn (Step 9)."""
+        from src.shared.types.models import get_all_layouts, get_layout_config
+        from src.modules.image_processing.processor import load_templates_for_layout
+        
+        # 1. Tìm layout group 'vertical'
+        all_layouts = get_all_layouts()
+        target_layout = "4x1" # Mặc định
+        
+        # Thử tìm các layout Custom đã được gán group 'vertical'
+        vertical_layouts = [k for k, v in all_layouts.items() if v.get("group") == "vertical"]
+        if vertical_layouts:
+            target_layout = vertical_layouts[0]
+            
+        cfg = get_layout_config(target_layout)
+        
+        # 2. Xác định slot count
+        if "SLOTS" in cfg:
+            slot_count = len(cfg["SLOTS"])
+        else:
+            slot_count = 4 
+            
+        # 3. Tìm template đầu tiên trong folder tương ứng
+        templates = load_templates_for_layout(target_layout, slot_count)
+        
+        # 4. Gán thông số
+        self.layout_type = target_layout
+        self.selected_frame_count = slot_count
+        self.selected_price_type = slot_count
+        self.selected_template_path = templates[0] if templates else None
+        
+        print(f"[FREE MODE] Fast Start: Layout={target_layout}, Slots={slot_count}, Template={self.selected_template_path}")
+        
+        # 5. Khởi tạo trạng thái chụp tương tác (Từng pô - Step 9)
+        self.current_slot_index = 0
+        self.interactive_photos = []
+        self.state = "INTERACTIVE_CAPTURE"
+        self.stacked.setCurrentIndex(9)
+        
+        # 6. BẮT ĐẦU GHI VIDEO từ lúc nhấn START
+        self._start_video_recording()
+        
+        # Cập nhật UI cho Step 9
+        if hasattr(self, 'update_interactive_template_preview'):
+            self.update_interactive_template_preview()
+        if hasattr(self, 'update_interactive_button_text'):
+            self.update_interactive_button_text()
+            # Cập nhật text nút bấm để người dùng biết cần bấm để bắt đầu
+            if hasattr(self, 'btn_capture_step'):
+                self.btn_capture_step.setText(f"📸 BẤM ĐỂ CHỤP [1/{slot_count}]")
 
+    def start_interactive_shot(self):
+        """Bắt đầu Countdown để chụp 1 tấm (Tăng lên 10 giây)."""
+        self.countdown_val = 3
+        self.interactive_countdown_label.setText(str(self.countdown_val))
+        self.timer_shot = QTimer()
+        self.timer_shot.timeout.connect(self.interactive_countdown_tick)
+        self.timer_shot.start(1000)
+        if hasattr(self, 'btn_capture_step'):
+            self.btn_capture_step.setEnabled(False)
+
+    def _start_video_recording(self):
+        """Khởi tạo VideoWriter để ghi video quá trình chụp."""
         try:
+            # Dừng ghi video cũ (nếu có)
+            self._stop_video_recording()
+
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             output_folder = r"D:\picture"
             os.makedirs(output_folder, exist_ok=True)
@@ -182,15 +234,29 @@ class FreePhotobooth(PhotoboothApp):
             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
             self.video_writer = cv2.VideoWriter(self.current_video_path, fourcc, 20.0, (1280, 720))
             self.is_recording_video = True
+            print(f"[VIDEO] Bắt đầu ghi video: {self.current_video_path}")
         except Exception as e:
-            print(f"[ERROR] Loi khoi tao video: {e}")
+            print(f"[ERROR] Lỗi khởi tạo video: {e}")
+            self.is_recording_video = False
 
-    def go_to_photo_select(self):
-        """Override - Dừng ghi video."""
+    def _stop_video_recording(self):
+        """Dừng ghi video và giải phóng VideoWriter."""
         if self.is_recording_video and self.video_writer:
             self.is_recording_video = False
             self.video_writer.release()
             self.video_writer = None
+            print(f"[VIDEO] Đã dừng ghi video: {self.current_video_path}")
+
+    def start_capture_session(self):
+        """Override - Bắt đầu ghi video (luồng cũ, giữ tương thích)."""
+        super().start_capture_session()
+        self.state = "CAPTURING"
+        self.stacked.setCurrentIndex(3)
+        self._start_video_recording()
+
+    def go_to_photo_select(self):
+        """Override - Dừng ghi video."""
+        self._stop_video_recording()
         super().go_to_photo_select()
 
     def update_camera_frame(self):
@@ -230,7 +296,8 @@ class FreePhotobooth(PhotoboothApp):
                     elif self.state == "INTERACTIVE_CAPTURE" and hasattr(self, 'interactive_camera_label'):
                         scaled = qt_img.scaled(self.interactive_camera_label.size(),
                                                Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                        self.interactive_camera_label.setPixmap(scaled)
+                        rounded = get_rounded_pixmap(scaled, radius=30)
+                        self.interactive_camera_label.setPixmap(rounded)
 
                     self._read_fail_count = 0
                 else:
@@ -244,8 +311,11 @@ class FreePhotobooth(PhotoboothApp):
             print(f"[WARNING] Loi trong update_camera_frame: {e}")
 
     def accept_and_print(self):
-        """Override - Hiển thị QR cho cả ảnh và video."""
+        """Override - Dừng ghi video, lưu ảnh, hiển thị QR cho cả ảnh và video."""
         self.template_timer.stop()
+        
+        # DỪNG GHI VIDEO khi nhấn "LẤY ẢNH"
+        self._stop_video_recording()
         
         # Dùng merged_image nếu có, nếu không dùng collage_image (từ interactive capture)
         final_image = self.merged_image if self.merged_image is not None else self.collage_image
@@ -260,6 +330,8 @@ class FreePhotobooth(PhotoboothApp):
 
         try:
             cv2.imwrite(filepath, self.merged_image)
+            print(f"[FREE MODE] Ảnh đã lưu: {filepath}")
+            print(f"[FREE MODE] Video đã lưu: {self.current_video_path}")
             dialog = DownloadSingleQRDialog(filepath, self.current_video_path, self)
             dialog.exec_()
             self.reset_all()
@@ -267,8 +339,12 @@ class FreePhotobooth(PhotoboothApp):
             QMessageBox.critical(self, "Lỗi", f"Không thể lưu kết quả: {e}")
 
     def reset_all(self):
+        # Đảm bảo video đã dừng trước khi reset
+        self._stop_video_recording()
         super().reset_all()
         self.current_video_path = None
+        self.is_recording_video = False
+        self.video_writer = None
 
 
 # ==========================================

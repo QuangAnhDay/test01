@@ -9,8 +9,35 @@ import os
 import cv2
 import numpy as np
 import subprocess
-from PyQt5.QtGui import QImage, QPixmap
+from PyQt5.QtGui import QImage, QPixmap, QPainter, QPainterPath
+from PyQt5.QtCore import Qt
 from src.shared.types.models import TEMPLATE_DIR, OUTPUT_DIR, SAMPLE_PHOTOS_DIR
+
+
+def get_rounded_pixmap(pixmap, radius=24):
+    """Tạo pixmap với các góc bo tròn (clipping)."""
+    if pixmap.isNull():
+        return pixmap
+        
+    size = pixmap.size()
+    # Tạo QImage mới với alpha channel
+    image = QImage(size.width(), size.height(), QImage.Format_ARGB32_Premultiplied)
+    image.fill(Qt.transparent)
+    
+    # Vẽ pixmap lên image với mask bo góc
+    painter = QPainter(image)
+    painter.setRenderHint(QPainter.Antialiasing, True)
+    
+    # Tạo path bo góc
+    path = QPainterPath()
+    path.addRoundedRect(0, 0, float(size.width()), float(size.height()), float(radius), float(radius))
+    painter.setClipPath(path)
+    
+    # Vẽ pixmap vào image
+    painter.drawPixmap(0, 0, pixmap)
+    painter.end()
+    
+    return QPixmap.fromImage(image)
 
 
 # ==========================================
