@@ -67,6 +67,13 @@ class CameraWorkerThread(QThread):
                     continue
 
                 # Capture frame
+                if self.external_cap:
+                    # Nếu dùng external_cap, thread này TRÁNH gọi read() 
+                    # để không tranh giành luồng dữ liệu (tránh double-read).
+                    # Frame sẽ được push thông qua hàm display_frame ngoài main app.
+                    self.msleep(100)
+                    continue
+
                 ret, frame = self.cap.read()
                 if not ret:
                     self._consecutive_failures += 1

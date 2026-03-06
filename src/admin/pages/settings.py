@@ -16,7 +16,7 @@ import json
 import time
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QLabel, QComboBox, QPushButton,
-                             QMessageBox, QGroupBox, QCheckBox, QSlider)
+                             QMessageBox, QGroupBox, QCheckBox, QSlider, QLineEdit)
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QImage, QPixmap
 
@@ -106,6 +106,24 @@ class CameraSetupApp(QMainWindow):
         settings_layout.addWidget(self.combo_res)
 
         controls_layout.addWidget(group_settings)
+        
+        group_dslr = QGroupBox("3. Chế độ DSLR (digiCamControl)")
+        dslr_layout = QVBoxLayout(group_dslr)
+        
+        self.edit_mjpeg = QLineEdit()
+        self.edit_mjpeg.setPlaceholderText("http://127.0.0.1:8080/mjpg/video.mjpg")
+        current_idx = str(self.config.get("camera_index", ""))
+        if current_idx.startswith("http"):
+            self.edit_mjpeg.setText(current_idx)
+            
+        dslr_layout.addWidget(QLabel("Địa chỉ MJPEG Stream:"))
+        dslr_layout.addWidget(self.edit_mjpeg)
+        
+        self.btn_use_dslr = QPushButton("SỬ DỤNG DSLR")
+        self.btn_use_dslr.clicked.connect(self.use_dslr_mjpeg)
+        dslr_layout.addWidget(self.btn_use_dslr)
+        
+        controls_layout.addWidget(group_dslr)
 
         btn_save = QPushButton("LƯU CẤU HÌNH & KẾT THÚC")
         btn_save.setStyleSheet("background-color: #28a745; color: white; height: 50px;")
@@ -179,8 +197,14 @@ class CameraSetupApp(QMainWindow):
             self.cap.release()
             self.cap = None
 
-        index = self.combo_cam.currentData()
-        if index is None or index < 0:
+        # Lấy index: có thể là int hoặc str (URL)
+        url_input = self.edit_mjpeg.text().strip()
+        if url_input.startswith("http"):
+            index = url_input
+        else:
+            index = self.combo_cam.currentData()
+
+        if index is None or (isinstance(index, int) and index < 0):
             self.preview_label.setText("Chưa chọn camera")
             return
 
@@ -188,12 +212,14 @@ class CameraSetupApp(QMainWindow):
         use_compat = self.check_compat.isChecked()
 
         self.consecutive_fails = 0
-        self.status_label.setText(f"Status: Đang kết nối Camera {index}...")
-        self.preview_label.setText(f"⏳ Đang mở Camera {index}...")
+        self.status_label.setText(f"Status: Đang kết nối {index}...")
+        self.preview_label.setText(f"⏳ Đang mở {index}...")
         QApplication.processEvents()  # Cập nhật UI ngay
 
         # Thử mở camera
-        if use_dshow:
+        if isinstance(index, str) and index.startswith("http"):
+            self.cap = cv2.VideoCapture(index)
+        elif use_dshow:
             self.cap = cv2.VideoCapture(index, cv2.CAP_DSHOW)
             if not self.cap.isOpened():
                 self.cap = cv2.VideoCapture(index)  # Fallback
@@ -243,19 +269,36 @@ class CameraSetupApp(QMainWindow):
         else:
             self.timer.stop()
 
+    def use_dslr_mjpeg(self):
+        url = self.edit_mjpeg.text().strip()
+        if not url.startswith("http"):
+             QMessageBox.warning(self, "Lỗi", "Địa chỉ MJPEG phải bắt đầu bằng http://")
+             return
+             
+        self.config["camera_index"] = url
+        self.config["use_dshow"] = False
+        save_camera_config(self.config)
+        self.start_preview()
+        QMessageBox.information(self, "Thành công", f"Đã chuyển sang dùng DSLR:\n{url}")
+
     def save_and_exit(self):
         res_text = self.combo_res.currentText()
-        w, h = (1280, 960) # Default 4:3
-        if "720" in res_text:
-            w, h = (1280, 720)
-        elif "1920" in res_text:
+        w, h = (1280, 720) # Default for DSLR
+        if "960" in res_text:
+            w, h = (1280, 960)
+        elif "1080" in res_text:
             w, h = (1920, 1080)
-        elif "640" in res_text:
+        elif "480" in res_text:
             w, h = (640, 480)
 
+        # Nếu đang dùng MJPEG, giữ nguyên index là chuỗi URL
+        current_cam_idx = self.edit_mjpeg.text().strip()
+        if not current_cam_idx.startswith("http"):
+            current_cam_idx = self.combo_cam.currentData()
+
         new_config = {
-            "camera_index": self.combo_cam.currentData(),
-            "use_dshow": self.check_dshow.isChecked(),
+            "camera_index": current_cam_idx,
+            "use_dshow": self.check_dshow.isChecked() if not isinstance(current_cam_idx, str) else False,
             "use_compat": self.check_compat.isChecked(),
             "width": w,
             "height": h

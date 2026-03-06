@@ -183,33 +183,42 @@ class PhotoboothApp(QMainWindow):
         _use_dshow = _cam_cfg.get("use_dshow", True)
         _use_compat = _cam_cfg.get("use_compat", False)
         _cam_w = _cam_cfg.get("width", 1280)
-        _cam_h = _cam_cfg.get("height", 960) # Mặc định 4:3 (960p) hỗ trợ tốt hơn cho laptopcam
+        _cam_h = _cam_cfg.get("height", 960)
 
-        if _use_dshow and os.name == "nt":
+        print(f"[DEBUG] Camera Config Loaded: {_cam_cfg}")
+        print(f"[DEBUG] Final Cam Index: {_cam_idx} (Type: {type(_cam_idx)})")
+
+        if isinstance(_cam_idx, str) and _cam_idx.startswith("http"):
+            self.cap = cv2.VideoCapture(_cam_idx)
+            print(f"[CAMERA] Kết nối DSLR qua MJPEG: {_cam_idx}")
+        elif _use_dshow and os.name == "nt":
             self.cap = cv2.VideoCapture(_cam_idx, cv2.CAP_DSHOW)
             if not self.cap.isOpened():
                 self.cap = cv2.VideoCapture(_cam_idx)  # Fallback
         else:
             self.cap = cv2.VideoCapture(_cam_idx)
 
-        # Chế độ tương thích: Dùng MJPG codec + độ phân giải thấp
-        if _use_compat:
-            self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
-            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-            print(f"[CAMERA] Main App: Compat mode (MJPG 640x480)")
-        else:
-            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, _cam_w)
-            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, _cam_h)
+        # Chế độ tương thích (Chỉ áp dụng cho webcam thật)
+        if not (isinstance(_cam_idx, str) and _cam_idx.startswith("http")):
+            if _use_compat:
+                self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+                self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+                self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+                print(f"[CAMERA] Main App: Compat mode (MJPG 640x480)")
+            else:
+                self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, _cam_w)
+                self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, _cam_h)
 
         self.current_camera_index = _cam_idx
         self._cam_read_fail_count = 0
 
         # Warmup: Đọc bỏ vài frame đầu
-        for _ in range(5):
-            self.cap.read()
-
-        print(f"[CAMERA] Đã mở camera index {_cam_idx} (dshow={_use_dshow}, compat={_use_compat})")
+        if self.cap.isOpened():
+            for _ in range(5):
+                self.cap.read()
+            print(f"[CAMERA] Đã mở camera index {_cam_idx} (dshow={_use_dshow}, compat={_use_compat})")
+        else:
+            print(f"[CAMERA ERROR] Không thể mở camera index {_cam_idx}")
 
         # --- MAIN LAYOUT ---
         self.central_widget = QWidget()
@@ -339,21 +348,21 @@ class PhotoboothApp(QMainWindow):
 
         for idx, path in enumerate(self.templates):
             btn = QPushButton()
-            btn.setFixedSize(130, 100)
-            pix = QPixmap(path).scaled(110, 85, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            btn.setFixedSize(220, 320)
+            pix = QPixmap(path).scaled(200, 300, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             btn.setIcon(QIcon(pix))
-            btn.setIconSize(QSize(110, 85))
+            btn.setIconSize(QSize(200, 300))
+            btn.setCheckable(True)
             btn.setStyleSheet("""
                 QPushButton {
-                    background-color: #16213e; border: 2px solid #0f3460;
-                    border-radius: 8px;
+                    background-color: white; border: 4px solid white;
+                    border-radius: 15px;
                 }
-                QPushButton:hover { border-color: #ffd700; }
+                QPushButton:checked { border-color: #F8D7D8; }
+                QPushButton:hover { border-color: #F1C4C5; }
             """)
-            btn.clicked.connect(lambda checked, p=path: self.apply_template(p))
-            row = idx // 2
-            col = idx % 2
-            self.template_btn_layout.addWidget(btn, row, col)
+            btn.clicked.connect(lambda checked, p=path, b=btn: self.apply_template(p, b))
+            self.template_btn_layout.addWidget(btn)
 
         self.stacked.setCurrentIndex(6)
 
@@ -509,6 +518,12 @@ class PhotoboothApp(QMainWindow):
             self.capture_photo()
 
     def capture_photo(self):
+        # Nếu dùng DSLR, ra lệnh chụp trước khi lấy frame
+        if isinstance(self.current_camera_index, str) and "127.0.0.1" in self.current_camera_index:
+            self.trigger_dslr_capture()
+            import time
+            time.sleep(0.4) # Chờ màn trập và stream cập nhật
+
         if self.current_frame is not None:
             self.captured_photos.append(self.current_frame.copy())
             photo_num = len(self.captured_photos)
@@ -670,23 +685,28 @@ class PhotoboothApp(QMainWindow):
 
         for idx, path in enumerate(self.templates):
             btn = QPushButton()
-            btn.setFixedSize(130, 100)
-            pix = QPixmap(path).scaled(110, 85, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            btn.setFixedSize(220, 320)
+            pix = QPixmap(path).scaled(200, 300, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             btn.setIcon(QIcon(pix))
-            btn.setIconSize(QSize(110, 85))
+            btn.setIconSize(QSize(200, 300))
+            btn.setCheckable(True)
             btn.setStyleSheet("""
                 QPushButton {
-                    background-color: #16213e; border: 2px solid #0f3460;
-                    border-radius: 8px;
+                    background-color: white; border: 4px solid white;
+                    border-radius: 15px;
                 }
-                QPushButton:hover { border-color: #ffd700; }
+                QPushButton:checked { border-color: #F8D7D8; }
+                QPushButton:hover { border-color: #F1C4C5; }
             """)
-            btn.clicked.connect(lambda checked, p=path: self.apply_template(p))
-            row = idx // 2
-            col = idx % 2
-            self.template_btn_layout.addWidget(btn, row, col)
+            btn.clicked.connect(lambda checked, p=path, b=btn: self.apply_template(p, b))
+            self.template_btn_layout.addWidget(btn)
 
         self.stacked.setCurrentIndex(6)
+
+        # Cập nhật trạng thái nút lọc
+        if hasattr(self, 'btn_filter_3'):
+            self.btn_filter_3.setChecked(self.selected_frame_count == 3)
+            self.btn_filter_4.setChecked(self.selected_frame_count == 4)
 
         self.template_time_left = 60
         self.update_template_timer_label()
@@ -726,14 +746,77 @@ class PhotoboothApp(QMainWindow):
             return
 
         # Hiển thị lên giao diện
-        scaled = self.pixmap.scaled(800, 600, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        target_size = self.template_preview_label.size()
+        if target_size.width() <= 10 or target_size.height() <= 10:
+            target_size = QSize(800, 600) # Fallback size
+            
+        scaled = self.pixmap.scaled(target_size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         self.template_preview_label.setPixmap(scaled)
 
-    def apply_template(self, template_path):
+    def filter_templates_by_count(self, count):
+        """Lọc danh sách template theo số lượng pô ảnh."""
+        self.selected_frame_count = count
+        
+        # Cập nhật UI nút lọc
+        if hasattr(self, 'btn_filter_3'):
+            self.btn_filter_3.setChecked(count == 3)
+        if hasattr(self, 'btn_filter_4'):
+            self.btn_filter_4.setChecked(count == 4)
+
+        # Lấy lại danh sách full cho group hiện tại
+        group = getattr(self, '_current_group_filter', self.layout_type)
+        if group == "4x1": group = "vertical"
+        
+        all_for_group = load_all_templates_for_group("vertical" if "vertical" in str(group).lower() else "custom")
+        
+        # Lọc những cái có số slot khớp
+        filtered = []
+        for p in all_for_group:
+            lname = detect_layout_from_template(p)
+            cfg = get_layout_config(lname)
+            slots = cfg.get("SLOTS", [])
+            if len(slots) == count:
+                filtered.append(p)
+            elif count == 4 and lname == "4x1": # Trường hợp đặc biệt 4x1 mặc định
+                filtered.append(p)
+
+        self.templates = filtered
+        
+        # Refresh danh sách nút
+        for i in reversed(range(self.template_btn_layout.count())):
+            widget = self.template_btn_layout.itemAt(i).widget()
+            if widget: widget.deleteLater()
+
+        for idx, path in enumerate(self.templates):
+            btn = QPushButton()
+            btn.setFixedSize(220, 320)
+            pix = QPixmap(path).scaled(200, 300, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            btn.setIcon(QIcon(pix))
+            btn.setIconSize(QSize(200, 300))
+            btn.setCheckable(True)
+            btn.setStyleSheet("""
+                QPushButton {
+                    background-color: white; border: 4px solid white;
+                    border-radius: 15px;
+                }
+                QPushButton:checked { border-color: #F8BBD0; }
+                QPushButton:hover { border-color: #F1C4C5; }
+            """)
+            btn.clicked.connect(lambda checked, p=path, b=btn: self.apply_template(p, b))
+            self.template_btn_layout.addWidget(btn)
+
+    def apply_template(self, template_path, source_btn=None):
         """Áp dụng template lên ảnh, tự phát hiện layout_type từ tên file template."""
         import os
         from src.shared.types.models import get_layout_config
         
+        # Highlight nút đã chọn
+        if source_btn:
+            for i in range(self.template_btn_layout.count()):
+                w = self.template_btn_layout.itemAt(i).widget()
+                if isinstance(w, QPushButton):
+                    w.setChecked(w == source_btn)
+
         # Phát hiện layout_type từ tên file template
         detected_layout = detect_layout_from_template(template_path)
         if detected_layout:
@@ -843,7 +926,7 @@ class PhotoboothApp(QMainWindow):
             self.interactive_countdown_label.setGeometry(self.interactive_camera_label.rect())
             self.interactive_flash_overlay.setGeometry(self.interactive_camera_label.rect())
 
-        self.countdown_val = 3
+        self.countdown_val = 10
         self.interactive_countdown_label.setText(str(self.countdown_val))
         self.interactive_countdown_label.show()
         self.timer_shot = QTimer()
@@ -869,6 +952,12 @@ class PhotoboothApp(QMainWindow):
 
     def take_one_photo(self):
         """Chụp 1 pô ảnh và lấp vào slot, sau đó quay về màn hình chính."""
+        # Nếu dùng DSLR qua digiCamControl
+        if isinstance(self.current_camera_index, str) and "127.0.0.1" in self.current_camera_index:
+            self.trigger_dslr_capture()
+            import time
+            time.sleep(0.5) # Wait for DSLR shutter and MJPEG update
+
         ret, frame = self.cap.read()
         if ret:
             frame = cv2.flip(frame, 1)
@@ -991,10 +1080,13 @@ class PhotoboothApp(QMainWindow):
         super().keyPressEvent(event)
 
     def closeEvent(self, event):
-        self.camera_timer.stop()
-        self.countdown_timer.stop()
-        self.selection_timer.stop()
-        self.template_timer.stop()
+        """Dừng tất cả các timer khi tắt ứng dụng."""
+        for timer_attr in ['camera_timer', 'countdown_timer', 'selection_timer', 'template_timer', 'timer_shot']:
+            if hasattr(self, timer_attr):
+                timer = getattr(self, timer_attr)
+                if timer and timer.isActive():
+                    timer.stop()
+        
         if hasattr(self, 'carousel1'):
             self.carousel1.scroll_timer.stop()
         if hasattr(self, 'carousel2'):
@@ -1002,8 +1094,20 @@ class PhotoboothApp(QMainWindow):
         if hasattr(self, 'casso_thread') and self.casso_thread and self.casso_thread.isRunning():
             self.casso_thread.stop()
             self.casso_thread.wait()
-        self.cap.release()
+        
+        if hasattr(self, 'cap') and self.cap:
+            self.cap.release()
         event.accept()
+
+    def trigger_dslr_capture(self):
+        """Gửi lệnh chụp HTTP tới digiCamControl."""
+        import requests
+        try:
+            # Mặc định digiCamControl chạy Webserver ở port 5513
+            requests.get("http://127.0.0.1:5513/remote?code=2001", timeout=1)
+            print("[DSLR] Da gui lenh chụp thành công.")
+        except Exception as e:
+            print(f"[DSLR ERROR] Không thể gửi lệnh chụp: {e}")
 
 
 

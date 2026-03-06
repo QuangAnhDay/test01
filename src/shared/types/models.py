@@ -16,8 +16,8 @@ import string
 # ==========================================
 CONFIG_FILE = "config.json"
 WINDOW_TITLE = "Photobooth Cảm Ứng"
-WINDOW_WIDTH = 1200
-WINDOW_HEIGHT = 800
+WINDOW_WIDTH = 1920
+WINDOW_HEIGHT = 1080
 CAMERA_INDEX = 0
 FIRST_PHOTO_DELAY = 10   # Giây cho ảnh đầu tiên
 BETWEEN_PHOTO_DELAY = 1  # Giây giữa các ảnh
