@@ -833,7 +833,11 @@ class PhotoboothApp(QMainWindow):
         self.btn_finish_interactive.setEnabled(idx == total)
 
     def start_interactive_shot(self):
-        """Bắt đầu Countdown để chụp 1 tấm."""
+        """Bắt đầu Countdown để chụp 1 tấm (Chuyển sang Full Camera)."""
+        # Chuyển sang Page 1 (Full Camera)
+        if hasattr(self, 'interactive_stack'):
+            self.interactive_stack.setCurrentIndex(1)
+        
         # Đồng bộ kích thước lớp phủ với camera label
         if hasattr(self, 'interactive_camera_label'):
             self.interactive_countdown_label.setGeometry(self.interactive_camera_label.rect())
@@ -841,7 +845,7 @@ class PhotoboothApp(QMainWindow):
 
         self.countdown_val = 3
         self.interactive_countdown_label.setText(str(self.countdown_val))
-        self.interactive_countdown_label.show() # Hiện lớp phủ mờ + số
+        self.interactive_countdown_label.show()
         self.timer_shot = QTimer()
         self.timer_shot.timeout.connect(self.interactive_countdown_tick)
         self.timer_shot.start(1000)
@@ -853,19 +857,18 @@ class PhotoboothApp(QMainWindow):
             self.interactive_countdown_label.setText(str(self.countdown_val))
         else:
             self.timer_shot.stop()
-            self.interactive_countdown_label.hide() # Ẩn đếm ngược
+            self.interactive_countdown_label.hide()
             
-            # Kích hoạt hiệu ứng nháy Flash
             if hasattr(self, 'interactive_flash_overlay'):
                 self.interactive_flash_overlay.show()
-                # Ẩn flash sau 100ms
-                QTimer.singleShot(100, self.interactive_flash_overlay.hide)
+                # Kéo dài Flash lên 400ms cho "đã"
+                QTimer.singleShot(400, self.interactive_flash_overlay.hide)
             
-            # Đợi một chút rồi chụp (150ms sau flash)
-            QTimer.singleShot(150, self.take_one_photo)
+            # Chụp ảnh sau khi Flash sáng được một nửa (250ms) để lấy đúng khoảnh khắc
+            QTimer.singleShot(250, self.take_one_photo)
 
     def take_one_photo(self):
-        """Chụp 1 pô ảnh và lấp vào slot."""
+        """Chụp 1 pô ảnh và lấp vào slot, sau đó quay về màn hình chính."""
         ret, frame = self.cap.read()
         if ret:
             frame = cv2.flip(frame, 1)
@@ -873,6 +876,10 @@ class PhotoboothApp(QMainWindow):
             self.current_slot_index += 1
             self.update_interactive_template_preview()
             self.update_interactive_button_text()
+            
+        # Quay về Page 0 (Preview)
+        if hasattr(self, 'interactive_stack'):
+            self.interactive_stack.setCurrentIndex(0)
             
         self.interactive_countdown_label.setText("")
 
