@@ -337,6 +337,25 @@ class PhotoboothApp(QMainWindow):
         # Chuyển thẳng sang màn hình chọn template (index 6)
         self.state = "TEMPLATE_SELECT"
         
+        # Điều chỉnh UI lọc dựa trên nhóm: Chỉ ẩn ở Custom, hiện ở Vertical
+        if group_filter == "custom":
+            if hasattr(self, 'filter_container'):
+                self.filter_container.hide()
+            if hasattr(self, 'list_container'):
+                self.list_container.setGeometry(40, 160, 1160, 880) 
+        else:
+            if hasattr(self, 'filter_container'):
+                self.filter_container.show()
+            if hasattr(self, 'list_container'):
+                self.list_container.setGeometry(40, 300, 1160, 740)
+                # Mặc định chọn lọc "Tất cả" khi mới vào Vertical
+                if hasattr(self, 'btn_filter_all'):
+                    self.btn_filter_all.setChecked(True)
+                if hasattr(self, 'btn_filter_3'):
+                    self.btn_filter_3.setChecked(False)
+                if hasattr(self, 'btn_filter_4'):
+                    self.btn_filter_4.setChecked(False)
+        
         # Hiển thị preview trống (chưa chọn template)
         self.update_template_preview()
         
@@ -355,20 +374,15 @@ class PhotoboothApp(QMainWindow):
             btn.setCheckable(True)
             btn.setStyleSheet("""
                 QPushButton {
-                    background-color: white; border: 4px solid white;
-                    border-radius: 15px;
+                    background: transparent; border: none;
                 }
-                QPushButton:checked { border-color: #F8D7D8; }
-                QPushButton:hover { border-color: #F1C4C5; }
+                QPushButton:checked { border: 5px solid #F8D7D8; border-radius: 15px; }
+                QPushButton:hover { border: 2px solid #F1C4C5; border-radius: 15px; }
             """)
             btn.clicked.connect(lambda checked, p=path, b=btn: self.apply_template(p, b))
             self.template_btn_layout.addWidget(btn)
 
         self.stacked.setCurrentIndex(6)
-
-        self.template_time_left = 60
-        self.update_template_timer_label()
-        self.template_timer.start(1000)
 
 
 
@@ -673,6 +687,13 @@ class PhotoboothApp(QMainWindow):
 
     def go_to_template_select(self):
         self.state = "TEMPLATE_SELECT"
+        
+        # Hiện thanh lọc và đưa dải lấp đầy về vị trí chuẩn (Dành cho bản Dọc/Vertical)
+        if hasattr(self, 'filter_container'):
+            self.filter_container.show()
+        if hasattr(self, 'list_container'):
+            self.list_container.setGeometry(40, 300, 1160, 740) 
+            
         self.templates = load_templates_for_layout(self.layout_type, self.selected_frame_count)
 
         self.update_template_preview()
@@ -692,11 +713,10 @@ class PhotoboothApp(QMainWindow):
             btn.setCheckable(True)
             btn.setStyleSheet("""
                 QPushButton {
-                    background-color: white; border: 4px solid white;
-                    border-radius: 15px;
+                    background: transparent; border: none;
                 }
-                QPushButton:checked { border-color: #F8D7D8; }
-                QPushButton:hover { border-color: #F1C4C5; }
+                QPushButton:checked { border: 5px solid #F8D7D8; border-radius: 15px; }
+                QPushButton:hover { border: 2px solid #F1C4C5; border-radius: 15px; }
             """)
             btn.clicked.connect(lambda checked, p=path, b=btn: self.apply_template(p, b))
             self.template_btn_layout.addWidget(btn)
@@ -762,6 +782,8 @@ class PhotoboothApp(QMainWindow):
             self.btn_filter_3.setChecked(count == 3)
         if hasattr(self, 'btn_filter_4'):
             self.btn_filter_4.setChecked(count == 4)
+        if hasattr(self, 'btn_filter_all'):
+            self.btn_filter_all.setChecked(count == 0)
 
         # Lấy lại danh sách full cho group hiện tại
         group = getattr(self, '_current_group_filter', self.layout_type)
@@ -775,7 +797,10 @@ class PhotoboothApp(QMainWindow):
             lname = detect_layout_from_template(p)
             cfg = get_layout_config(lname)
             slots = cfg.get("SLOTS", [])
-            if len(slots) == count:
+
+            if count == 0: # Lấy TẤT CẢ
+                filtered.append(p)
+            elif len(slots) == count:
                 filtered.append(p)
             elif count == 4 and lname == "4x1": # Trường hợp đặc biệt 4x1 mặc định
                 filtered.append(p)
@@ -796,11 +821,10 @@ class PhotoboothApp(QMainWindow):
             btn.setCheckable(True)
             btn.setStyleSheet("""
                 QPushButton {
-                    background-color: white; border: 4px solid white;
-                    border-radius: 15px;
+                    background: transparent; border: none;
                 }
-                QPushButton:checked { border-color: #F8BBD0; }
-                QPushButton:hover { border-color: #F1C4C5; }
+                QPushButton:checked { border: 5px solid #F8BBD0; border-radius: 15px; }
+                QPushButton:hover { border: 2px solid #F1C4C5; border-radius: 15px; }
             """)
             btn.clicked.connect(lambda checked, p=path, b=btn: self.apply_template(p, b))
             self.template_btn_layout.addWidget(btn)
@@ -916,7 +940,7 @@ class PhotoboothApp(QMainWindow):
         self.btn_finish_interactive.setEnabled(idx == total)
 
     def start_interactive_shot(self):
-        """Bắt đầu Countdown để chụp 1 tấm (Chuyển sang Full Camera)."""
+        """Bắt đầu Countdown 10s để chụp 1 tấm (Chuyển sang Full Camera)."""
         # Chuyển sang Page 1 (Full Camera)
         if hasattr(self, 'interactive_stack'):
             self.interactive_stack.setCurrentIndex(1)
@@ -929,8 +953,12 @@ class PhotoboothApp(QMainWindow):
         self.countdown_val = 10
         self.interactive_countdown_label.setText(str(self.countdown_val))
         self.interactive_countdown_label.show()
-        self.timer_shot = QTimer()
-        self.timer_shot.timeout.connect(self.interactive_countdown_tick)
+        
+        # Sử dụng QTimer để đếm ngược
+        if not hasattr(self, 'timer_shot'):
+            self.timer_shot = QTimer()
+            self.timer_shot.timeout.connect(self.interactive_countdown_tick)
+        
         self.timer_shot.start(1000)
         self.btn_capture_step.setEnabled(False)
 

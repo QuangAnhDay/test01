@@ -83,58 +83,68 @@ def create_template_screen(app):
     app.lbl_template_timer.setAlignment(Qt.AlignCenter)
 
     # --- [4] KHUNG CHỨA CÁC NÚT LỌC ("khung 3 ảnh" và "khung 4 ảnh") ---
-    filter_container = QFrame(screen)
+    app.filter_container = QFrame(screen)
     # Tinh chỉnh vị trí: setGeometry(X, Y, Rộng, Cao)
-    filter_container.setGeometry(40, 160, 1160, 120) 
-    filter_container.setStyleSheet("background-color: #FADBDC; border-radius: 25px; border: 5px solid white;")
+    app.filter_container.setGeometry(40, 160, 1160, 120) 
+    app.filter_container.setStyleSheet("background-color: #FADBDC; border-radius: 25px; border: 5px solid white;")
     
-    filter_layout = QHBoxLayout(filter_container)
-    filter_layout.setContentsMargins(105, 0, 150, 17)
-    filter_layout.setSpacing(200)
+    filter_layout = QHBoxLayout(app.filter_container)
+    filter_layout.setContentsMargins(60, 0, 60, 15)
+    filter_layout.setSpacing(40)
 
     app.btn_filter_3 = QPushButton("khung 3 ảnh")
     app.btn_filter_4 = QPushButton("khung 4 ảnh")
+    app.btn_filter_all = QPushButton("tất cả khung") # Nút mới
     
-    for btn in [app.btn_filter_3, app.btn_filter_4]:
-        btn.setFixedSize(380, 80)
+    for btn in [app.btn_filter_3, app.btn_filter_4, app.btn_filter_all]:
+        btn.setFixedSize(320, 80)
         btn.setCheckable(True)
         btn.setStyleSheet("""
             QPushButton {
                 background-color: white; color: black;
-                font-family: 'Arial'; font-size: 28px; font-style: italic; font-weight: bold;
+                font-family: 'Arial'; font-size: 26px; font-style: italic; font-weight: bold;
                 border-radius: 15px; border: none;
             }
             QPushButton:checked { background-color: #F2BFC1; color: white; }
         """)
-        btn.clicked.connect(lambda checked, b=btn: [app.btn_filter_3.setChecked(b==app.btn_filter_3), app.btn_filter_4.setChecked(b==app.btn_filter_4)])
+        btn.clicked.connect(lambda checked, b=btn: [
+            app.btn_filter_3.setChecked(b==app.btn_filter_3), 
+            app.btn_filter_4.setChecked(b==app.btn_filter_4),
+            app.btn_filter_all.setChecked(b==app.btn_filter_all)
+        ])
     
     if hasattr(app, 'filter_templates_by_count'):
         app.btn_filter_3.clicked.connect(lambda: app.filter_templates_by_count(3))
         app.btn_filter_4.clicked.connect(lambda: app.filter_templates_by_count(4))
+        app.btn_filter_all.clicked.connect(lambda: app.filter_templates_by_count(0)) # 0 nghĩa là Lấy tất cả
     
+    filter_layout.addWidget(app.btn_filter_all) # Cho nút Tất cả lên đầu hoặc cuối tùy ý bạn, mình để ở đầu nhé
     filter_layout.addWidget(app.btn_filter_3)
     filter_layout.addWidget(app.btn_filter_4)
     filter_layout.addStretch()
 
     # --- [5] KHUNG CHỨA DANH SÁCH TEMPLATE (Hồng lớn) ---
-    list_container = QFrame(screen)
+    app.list_container = QFrame(screen)
     # Tinh chỉnh vị trí: setGeometry(X, Y, Rộng, Cao)
-    list_container.setGeometry(40, 300, 1160, 740) 
-    list_container.setStyleSheet("background-color: #FADBDC; border-radius: 35px; border: 5px solid white;")
+    app.list_container.setGeometry(40, 300, 1160, 740) 
+    app.list_container.setStyleSheet("background-color: #FADBDC; border-radius: 35px; border: 5px solid white;")
     
-    list_inner = QVBoxLayout(list_container)
+    list_inner = QVBoxLayout(app.list_container)
     list_inner.setContentsMargins(20, 20, 20, 20)
 
-    # [6] KHU VỰC VUỐT NGANG (Scroll Area)
+    # --- [6] KHU VỰC VUỐT NGANG (Scroll Area) ---
     app.template_scroll_area = ClickAndDragScrollArea()
+    app.template_scroll_area.setWidgetResizable(True)
+    list_inner.addWidget(app.template_scroll_area)
+
     app.template_btn_widget = QWidget()
+    app.template_btn_widget.setStyleSheet("background: transparent;")
     app.template_btn_layout = QHBoxLayout(app.template_btn_widget) 
     app.template_btn_layout.setSpacing(30)
     app.template_btn_layout.setContentsMargins(15, 15, 15, 15)
     app.template_btn_layout.setAlignment(Qt.AlignLeft)
     
     app.template_scroll_area.setWidget(app.template_btn_widget)
-    list_inner.addWidget(app.template_scroll_area)
 
     # --- [7] KHUNG XEM TRƯỚC (Preview Box trắng lớn bên phải) ---
     preview_container = QFrame(screen)
@@ -151,7 +161,7 @@ def create_template_screen(app):
     preview_layout.addWidget(app.template_preview_label)
 
     # --- [8] NÚT CHỤP ẢNH (Góc dưới cùng bên phải) ---
-    app.btn_confirm_template = QPushButton("chụp ảnh", screen)
+    app.btn_confirm_template = QPushButton("CHỤP ẢNH!", screen)
     # Tinh chỉnh vị trí: setGeometry(X, Y, Rộng, Cao)
     app.btn_confirm_template.setGeometry(1335, 920, 450, 110) 
     app.btn_confirm_template.setStyleSheet("""
@@ -190,7 +200,7 @@ if __name__ == "__main__":
     for i in range(10):
         btn = QPushButton(f"Frame {i}")
         btn.setFixedSize(220, 500)
-        btn.setStyleSheet("background-color: white; border-radius: 10px; border: 3px solid #F5EBEC;")
+        btn.setStyleSheet("background-color: transparent; border: none;")
         dummy.template_btn_layout.addWidget(btn)
 
     # Áp dụng STYLE giống hệt App chính để xem cho chuẩn
