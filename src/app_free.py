@@ -26,8 +26,9 @@ from PyQt5.QtWidgets import (QApplication, QMessageBox, QPushButton, QWidget,
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QPixmap, QFont
 
-from src.shared.types.models import load_config, FIRST_PHOTO_DELAY, PHOTOS_TO_TAKE
+from src.shared.types.models import load_config, FIRST_PHOTO_DELAY, PHOTOS_TO_TAKE, get_layout_config, OUTPUT_DIR
 from src.shared.utils.helpers import ensure_directories, convert_cv_qt, load_sample_photos, get_rounded_pixmap
+from src.modules.image_processing.processor import crop_to_aspect_wh
 from src.photobooth.components.dialogs import DownloadSingleQRDialog
 from src.app import PhotoboothApp
 from src.ui.screens.home_screen import HomeScreen
@@ -198,11 +199,18 @@ class FreePhotobooth(PhotoboothApp):
         # 3. Tìm template đầu tiên trong folder tương ứng
         templates = load_templates_for_layout(target_layout, slot_count)
         
+        # Ưu tiên template có hậu tố _1 (thường là thiết kế người dùng vừa thêm)
+        selected_template = templates[0] if templates else None
+        for t in templates:
+            if "_1." in t:
+                selected_template = t
+                break
+        
         # 4. Gán thông số
         self.layout_type = target_layout
         self.selected_frame_count = slot_count
         self.selected_price_type = slot_count
-        self.selected_template_path = templates[0] if templates else None
+        self.selected_template_path = selected_template
         
         print(f"[FREE MODE] Fast Start: Layout={target_layout}, Slots={slot_count}, Template={self.selected_template_path}")
         
@@ -222,7 +230,7 @@ class FreePhotobooth(PhotoboothApp):
             self.update_interactive_button_text()
             # Cập nhật text nút bấm để người dùng biết cần bấm để bắt đầu
             if hasattr(self, 'btn_capture_step'):
-                self.btn_capture_step.setText(f"📸 BẤM ĐỂ CHỤP [1/{slot_count}]")
+                self.btn_capture_step.setText(f" BẤM ĐỂ CHỤP ! ")
 
     def start_interactive_shot(self):
         """Bắt đầu Countdown để chụp 1 tấm (Thực hiện đếm ngược 10 giây)."""
@@ -251,7 +259,7 @@ class FreePhotobooth(PhotoboothApp):
             self._stop_video_recording()
 
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_folder = r"D:\picture"
+            output_folder = os.path.abspath(OUTPUT_DIR)
             os.makedirs(output_folder, exist_ok=True)
             self.current_video_path = os.path.join(output_folder, f"video_{timestamp}.mp4")
 
@@ -313,17 +321,34 @@ class FreePhotobooth(PhotoboothApp):
                         scaled = qt_img.scaled(self.camera_label.size(),
                                                Qt.KeepAspectRatio, Qt.SmoothTransformation)
                         self.camera_label.setPixmap(scaled)
-                    elif self.state == "INTERACTIVE_CAPTURE" and hasattr(self, 'interactive_camera_label'):
-                        scaled = qt_img.scaled(self.interactive_camera_label.size(),
-                                               Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                        rounded = get_rounded_pixmap(scaled, radius=30)
-                        self.interactive_camera_label.setPixmap(rounded)
+                    elif self.state == "INTERACTIVE_CAPTURE":
+                        # Lấy cấu hình layout để biết tỷ lệ slot
+                        cfg = get_layout_config(self.layout_type)
+                        slots = cfg.get("SLOTS", [])
                         
-                        # Cập nhật thêm Camera mini ở sidebar (trang dashboard)
+                        display_frame = frame
+                        if slots:
+                            sw, sh = slots[0][2], slots[0][3] # Lấy W, H của slot đầu tiên
+                            display_frame = crop_to_aspect_wh(frame, sw, sh)
+                            
+                        qt_img_display = convert_cv_qt(display_frame)
+
+                        # Cập nhật màn hình chụp Full (Page 1)
+                        if hasattr(self, 'interactive_camera_label'):
+                            # Fullscreen preview - Zoom-to-fill 16:9
+                            lbl_size = self.interactive_camera_label.size()
+                            if not lbl_size.isEmpty():
+                                scaled_full = qt_img_display.scaled(lbl_size, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+                                self.interactive_camera_label.setPixmap(scaled_full)
+                            
+                        # Cập nhật Camera mini ở sidebar (Page 0)
                         if hasattr(self, 'interactive_camera_mini'):
-                            mini_scaled = qt_img.scaled(self.interactive_camera_mini.size(),
-                                                       Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                            mini_rounded = get_rounded_pixmap(mini_scaled, radius=20)
+                            # Trừ đi padding/border (khoảng 20px tổng cộng) để "khíp" vào lòng trắng
+                            mini_w = self.interactive_camera_mini.width() - 20
+                            mini_h = self.interactive_camera_mini.height() - 20
+                            mini_scaled = qt_img_display.scaled(mini_w, mini_h,
+                                                       Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+                            mini_rounded = get_rounded_pixmap(mini_scaled, radius=25) # Giảm radius xíu cho khớp lòng
                             self.interactive_camera_mini.setPixmap(mini_rounded)
 
                     self._read_fail_count = 0
@@ -357,7 +382,7 @@ class FreePhotobooth(PhotoboothApp):
             
         self.merged_image = final_image
 
-        output_folder = r"D:\picture"
+        output_folder = os.path.abspath(OUTPUT_DIR)
         os.makedirs(output_folder, exist_ok=True)
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         filepath = os.path.join(output_folder, f"photo_{timestamp}.jpg")
@@ -379,6 +404,13 @@ class FreePhotobooth(PhotoboothApp):
         self.current_video_path = None
         self.is_recording_video = False
         self.video_writer = None
+
+    def closeEvent(self, event):
+        """Dừng tất cả tiến trình trước khi thoát."""
+        self._stop_video_recording()
+        if hasattr(self, 'cap') and self.cap:
+            self.cap.release()
+        event.accept()
 
 
 # ==========================================

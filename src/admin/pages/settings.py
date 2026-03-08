@@ -72,7 +72,7 @@ class CameraSetupApp(QMainWindow):
 
         self.combo_cam = QComboBox()
         self.refresh_cameras()
-        self.combo_cam.currentIndexChanged.connect(self.start_preview)
+        self.combo_cam.currentIndexChanged.connect(self.on_combo_cam_changed)
 
         hint_label = QLabel("💡 Gợi ý:\nIndex 0: Thường là Cam Laptop\nIndex 1: Thường là Iriun/HDMI")
         hint_label.setStyleSheet("color: #666; font-size: 13px;")
@@ -201,6 +201,9 @@ class CameraSetupApp(QMainWindow):
         url_input = self.edit_mjpeg.text().strip()
         if url_input.startswith("http"):
             index = url_input
+            self.combo_cam.blockSignals(True)
+            self.combo_cam.setCurrentIndex(-1) # Bỏ chọn combo cam
+            self.combo_cam.blockSignals(False)
         else:
             index = self.combo_cam.currentData()
 
@@ -214,32 +217,28 @@ class CameraSetupApp(QMainWindow):
         self.consecutive_fails = 0
         self.status_label.setText(f"Status: Đang kết nối {index}...")
         self.preview_label.setText(f"⏳ Đang mở {index}...")
-        QApplication.processEvents()  # Cập nhật UI ngay
+        QApplication.processEvents()
 
-        # Thử mở camera
         if isinstance(index, str) and index.startswith("http"):
             self.cap = cv2.VideoCapture(index)
         elif use_dshow:
             self.cap = cv2.VideoCapture(index, cv2.CAP_DSHOW)
             if not self.cap.isOpened():
-                self.cap = cv2.VideoCapture(index)  # Fallback
+                self.cap = cv2.VideoCapture(index)
         else:
             self.cap = cv2.VideoCapture(index)
 
         if self.cap and self.cap.isOpened():
             if use_compat:
-                # Tránh set FOURCC cho Virtual Camera vì dễ gây treo phần mềm
                 self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
                 self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
             else:
                 self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
                 self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 960)
 
-            # Khởi động timer preview (sau khi warmup)
             self.warmup_count = 0
             self.status_label.setText(f"Status: Đang chạy Camera {index}")
 
-            # Warmup: Đọc bỏ vài frame đầu (Giảm xuống 2 để chống treo)
             for _ in range(2):
                 self.cap.read()
 
@@ -247,6 +246,14 @@ class CameraSetupApp(QMainWindow):
         else:
             self.status_label.setText("Status: KHÔNG THỂ KẾT NỐI")
             self.preview_label.setText(f"LỖI: Không thể mở Camera {index}\nHãy thử bật 'Chế độ tương thích' hoặc đổi Index")
+
+    def on_combo_cam_changed(self):
+        """Khi chọn webcam thì xóa bớt URL DSLR để không bị ưu tiên nhầm."""
+        if self.combo_cam.currentIndex() >= 0:
+            self.edit_mjpeg.blockSignals(True)
+            self.edit_mjpeg.clear()
+            self.edit_mjpeg.blockSignals(False)
+            self.start_preview()
 
     def update_frame(self):
         if self.cap and self.cap.isOpened():
@@ -275,9 +282,11 @@ class CameraSetupApp(QMainWindow):
              QMessageBox.warning(self, "Lỗi", "Địa chỉ MJPEG phải bắt đầu bằng http://")
              return
              
-        self.config["camera_index"] = url
-        self.config["use_dshow"] = False
-        save_camera_config(self.config)
+        # Xóa lựa chọn webcam khi chọn DSLR
+        self.combo_cam.blockSignals(True)
+        self.combo_cam.setCurrentIndex(-1)
+        self.combo_cam.blockSignals(False)
+        
         self.start_preview()
         QMessageBox.information(self, "Thành công", f"Đã chuyển sang dùng DSLR:\n{url}")
 

@@ -68,7 +68,12 @@ def create_interactive_capture_screen(app):
     app.interactive_camera_mini = QLabel()
     app.interactive_camera_mini.setFixedSize(560, 420) 
     app.interactive_camera_mini.setAlignment(Qt.AlignCenter)
-    app.interactive_camera_mini.setStyleSheet("background-color: black; border-radius: 20px;")
+    app.interactive_camera_mini.setStyleSheet("""
+        background-color: white; 
+        border-radius: 35px; 
+        border: 5px solid white; 
+        padding: 5px;
+    """)
     control_layout.addWidget(app.interactive_camera_mini)
 
     btn_style_white = """
