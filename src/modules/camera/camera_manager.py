@@ -47,24 +47,25 @@ class CameraManager:
         if self.cap:
             self.cap.release()
 
-        use_dshow = self.camera_config.get("use_dshow", True)
-        use_compat = self.camera_config.get("use_compat", False)
-
-        if use_dshow and os.name == "nt":
+        if isinstance(index, str) and index.startswith("http"):
+            self.cap = cv2.VideoCapture(index)
+            print(f"[CAMERA] Kết nối DSLR qua MJPEG: {index}")
+        elif use_dshow and os.name == "nt":
             self.cap = cv2.VideoCapture(index, cv2.CAP_DSHOW)
             if not self.cap.isOpened():
                 self.cap = cv2.VideoCapture(index)  # Fallback
         else:
             self.cap = cv2.VideoCapture(index)
 
-        # Chế độ tương thích: MJPG codec (sửa lỗi cam laptop bị đen)
-        if use_compat:
-            self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
-            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-        else:
-            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.camera_config.get("width", 1280))
-            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.camera_config.get("height", 720))
+        # Chế độ tương thích (Chỉ cho Webcam, không áp dụng cho DSLR URL)
+        if not (isinstance(index, str) and index.startswith("http")):
+            if use_compat:
+                self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+                self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+                self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            else:
+                self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.camera_config.get("width", 1280))
+                self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.camera_config.get("height", 720))
 
         self.current_camera_index = index
 
@@ -86,33 +87,42 @@ class CameraManager:
 
         print(f"[CAMERA] Dang tim camera (Thu thu tu: {indices})...")
 
-        for idx in indices:
-            try:
-                cap_flag = cv2.CAP_DSHOW if use_dshow else 0
-                temp_cap = cv2.VideoCapture(idx, cap_flag)
-                if not temp_cap.isOpened() and use_dshow:
-                    temp_cap = cv2.VideoCapture(idx)
+        # Kiểm tra nếu config là URL (digiCamControl)
+        if isinstance(config_idx, str) and config_idx.startswith("http"):
+            self.cap = cv2.VideoCapture(config_idx)
+            if self.cap.isOpened():
+                print(f"[OK] Da ket noi DSLR URL: {config_idx}")
+                found = True
+                self.current_camera_index = config_idx
 
-                if temp_cap.isOpened():
-                    temp_cap.read()
-                    ret, frame = temp_cap.read()
-                    if ret and frame is not None:
-                        if self.cap:
-                            self.cap.release()
-                        self.cap = temp_cap
-                        self.current_camera_index = idx
+        if not found:
+            for idx in indices:
+                try:
+                    cap_flag = cv2.CAP_DSHOW if use_dshow else 0
+                    temp_cap = cv2.VideoCapture(idx, cap_flag)
+                    if not temp_cap.isOpened() and use_dshow:
+                        temp_cap = cv2.VideoCapture(idx)
 
-                        w = self.camera_config.get("width", 1280)
-                        h = self.camera_config.get("height", 720)
-                        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, w)
-                        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, h)
+                    if temp_cap.isOpened():
+                        temp_cap.read()
+                        ret, frame = temp_cap.read()
+                        if ret and frame is not None:
+                            if self.cap:
+                                self.cap.release()
+                            self.cap = temp_cap
+                            self.current_camera_index = idx
 
-                        print(f"[OK] Da chon camera index: {idx} ({w}x{h})")
-                        found = True
-                        break
-                temp_cap.release()
-            except:
-                pass
+                            w = self.camera_config.get("width", 1280)
+                            h = self.camera_config.get("height", 720)
+                            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, w)
+                            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, h)
+
+                            print(f"[OK] Da chon camera index: {idx} ({w}x{h})")
+                            found = True
+                            break
+                    temp_cap.release()
+                except:
+                    pass
 
         if not found:
             print("[WARNING] Khong tim thay camera nao hoat dong!")
@@ -185,6 +195,18 @@ class CameraManager:
             self.video_writer.release()
             self.video_writer = None
             print("[VIDEO] Da dung ghi video.")
+
+    def remote_capture(self, port=5513):
+        """Gửi lệnh chụp cho digiCamControl qua HTTP API."""
+        import requests
+        try:
+            url = f"http://127.0.0.1:{port}/remote?code=2001"
+            print(f"[DSLR] Dang ra lenh chup: {url}")
+            requests.get(url, timeout=2)
+            return True
+        except Exception as e:
+            print(f"[ERROR] DSLR Capture fail: {e}")
+            return False
 
     def release(self):
         """Giải phóng camera và video writer."""

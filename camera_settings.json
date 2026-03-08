@@ -1,6 +1,6 @@
 {
-    "camera_index": 1,
-    "use_dshow": true,
+    "camera_index": "http://127.0.0.1:5514/live",
+    "use_dshow": false,
     "use_compat": false,
     "width": 1280,
     "height": 960

@@ -16,8 +16,8 @@ import string
 # ==========================================
 CONFIG_FILE = "config.json"
 WINDOW_TITLE = "Photobooth Cảm Ứng"
-WINDOW_WIDTH = 1200
-WINDOW_HEIGHT = 800
+WINDOW_WIDTH = 1920
+WINDOW_HEIGHT = 1080
 CAMERA_INDEX = 0
 FIRST_PHOTO_DELAY = 10   # Giây cho ảnh đầu tiên
 BETWEEN_PHOTO_DELAY = 1  # Giây giữa các ảnh
@@ -217,13 +217,29 @@ def save_custom_layout(name, config, group="custom"):
         return False
 
 def delete_custom_layout(name):
-    """Xóa một layout custom khỏi file JSON."""
+    """Xóa một layout custom khỏi file JSON và xóa file template tương ứng."""
     current_layouts = load_custom_layouts()
     if name in current_layouts:
+        # Lấy group trước khi xóa để biết thư mục chứa template
+        cfg = current_layouts[name]
+        group = cfg.get("group", "custom")
+        
         del current_layouts[name]
         try:
             with open(CUSTOM_LAYOUTS_FILE, 'w', encoding='utf-8') as f:
                 json.dump(current_layouts, f, indent=4)
+            
+            # Xóa file template tương ứng
+            if group == "vertical":
+                template_dir = os.path.join(TEMPLATE_DIR, "vertical")
+            else:
+                template_dir = os.path.join(TEMPLATE_DIR, "custom")
+            
+            template_file = os.path.join(template_dir, f"frame_{name}.png")
+            if os.path.exists(template_file):
+                os.remove(template_file)
+                print(f"[DELETE] Removed template file: {template_file}")
+            
             return True
         except Exception as e:
             print(f"Lỗi khi xóa layout: {e}")

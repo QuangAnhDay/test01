@@ -94,36 +94,44 @@ class FreePhotobooth(PhotoboothApp):
         config_idx = self.camera_config.get("camera_index")
         use_dshow = self.camera_config.get("use_dshow", True)
 
-        indices = [1, 2, 0, 3]
-        if config_idx is not None:
-            if config_idx in indices:
+        # Kiểm tra nếu config là URL (digiCamControl)
+        if isinstance(config_idx, str) and config_idx.startswith("http"):
+            self.cap = cv2.VideoCapture(config_idx)
+            if self.cap.isOpened():
+                print(f"[OK] Free Mode: DSLR URL connected: {config_idx}")
+                found = True
+                self.current_camera_index = config_idx
+
+        if not found:
+            indices = [1, 2, 0, 3]
+            if isinstance(config_idx, int) and config_idx in indices:
                 indices.remove(config_idx)
-            indices.insert(0, config_idx)
+                indices.insert(0, config_idx)
 
-        for idx in indices:
-            try:
-                cap_flag = cv2.CAP_DSHOW if use_dshow else 0
-                temp_cap = cv2.VideoCapture(idx, cap_flag)
-                if not temp_cap.isOpened() and use_dshow:
-                    temp_cap = cv2.VideoCapture(idx)
+            for idx in indices:
+                try:
+                    cap_flag = cv2.CAP_DSHOW if use_dshow else 0
+                    temp_cap = cv2.VideoCapture(idx, cap_flag)
+                    if not temp_cap.isOpened() and use_dshow:
+                        temp_cap = cv2.VideoCapture(idx)
 
-                if temp_cap.isOpened():
-                    temp_cap.read()
-                    ret, frame = temp_cap.read()
-                    if ret and frame is not None:
-                        if self.cap:
-                            self.cap.release()
-                        self.cap = temp_cap
-                        self.current_camera_index = idx
-                        w = self.camera_config.get("width", 1280)
-                        h = self.camera_config.get("height", 720)
-                        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, w)
-                        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, h)
-                        found = True
-                        break
-                temp_cap.release()
-            except:
-                pass
+                    if temp_cap.isOpened():
+                        temp_cap.read()
+                        ret, frame = temp_cap.read()
+                        if ret and frame is not None:
+                            if self.cap:
+                                self.cap.release()
+                            self.cap = temp_cap
+                            self.current_camera_index = idx
+                            w = self.camera_config.get("width", 1280)
+                            h = self.camera_config.get("height", 720)
+                            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, w)
+                            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, h)
+                            found = True
+                            break
+                    temp_cap.release()
+                except:
+                    pass
 
         if not found:
             if not self.cap or not self.cap.isOpened():
@@ -138,7 +146,13 @@ class FreePhotobooth(PhotoboothApp):
             self.camera_timer.stop()
         if self.cap:
             self.cap.release()
-        self.current_camera_index = (self.current_camera_index + 1) % 4
+
+        # Nếu đang dùng URL, thì next sẽ là Webcam 0
+        if isinstance(self.current_camera_index, str):
+            self.current_camera_index = 0
+        else:
+            self.current_camera_index = (self.current_camera_index + 1) % 4
+            
         self.cap = cv2.VideoCapture(self.current_camera_index, cv2.CAP_DSHOW)
         if not self.cap.isOpened():
             self.cap = cv2.VideoCapture(self.current_camera_index)
@@ -211,9 +225,19 @@ class FreePhotobooth(PhotoboothApp):
                 self.btn_capture_step.setText(f"📸 BẤM ĐỂ CHỤP [1/{slot_count}]")
 
     def start_interactive_shot(self):
-        """Bắt đầu Countdown để chụp 1 tấm (Tăng lên 10 giây)."""
-        self.countdown_val = 3
+        """Bắt đầu Countdown để chụp 1 tấm (Thực hiện đếm ngược 10 giây)."""
+        # Chuyển sang Page 1 (Full Camera)
+        if hasattr(self, 'interactive_stack'):
+            self.interactive_stack.setCurrentIndex(1)
+            
+        # Đồng bộ kích thước lớp phủ với camera label
+        if hasattr(self, 'interactive_camera_label'):
+            self.interactive_countdown_label.setGeometry(self.interactive_camera_label.rect())
+            self.interactive_flash_overlay.setGeometry(self.interactive_camera_label.rect())
+
+        self.countdown_val = 10
         self.interactive_countdown_label.setText(str(self.countdown_val))
+        self.interactive_countdown_label.show()
         self.timer_shot = QTimer()
         self.timer_shot.timeout.connect(self.interactive_countdown_tick)
         self.timer_shot.start(1000)
@@ -260,15 +284,11 @@ class FreePhotobooth(PhotoboothApp):
         super().go_to_photo_select()
 
     def update_camera_frame(self):
-        """Override - Ghi frame vào video nếu đang ghi."""
+        """Override - Cập nhật frame camera cho Free Mode."""
         try:
             if self.state in ["START", "CAPTURING", "WAITING_CAPTURE", "INTERACTIVE_CAPTURE"]:
                 if self.cap is None or not self.cap.isOpened():
-                    if not hasattr(self, '_last_camera_retry'):
-                        self._last_camera_retry = 0
-                    if datetime.datetime.now().timestamp() - self._last_camera_retry > 3:
-                        self.auto_select_camera()
-                        self._last_camera_retry = datetime.datetime.now().timestamp()
+                    # Nếu camera chưa mở, thử mở lại dựa trên config
                     return
 
                 ret, frame = self.cap.read()
@@ -278,6 +298,8 @@ class FreePhotobooth(PhotoboothApp):
 
                     if self.is_recording_video and self.video_writer:
                         try:
+                            # Tự lấy kích thước video từ frame
+                            fh, fw = frame.shape[:2]
                             v_frame = cv2.resize(frame, (1280, 720))
                             self.video_writer.write(v_frame)
                         except Exception as ve:
@@ -286,9 +308,7 @@ class FreePhotobooth(PhotoboothApp):
                     qt_img = convert_cv_qt(frame)
 
                     if self.state == "START" and hasattr(self, 'home_screen'):
-                        # Nếu đang ở Home, để HomeScreen tự cập nhật qua CameraView của nó
-                        # hoặc ta có thể chủ động cập nhật label của HomeScreen nếu muốn dùng chung cap
-                        pass
+                        self.home_screen.camera_view.display_frame(qt_img)
                     elif self.state in ["CAPTURING", "WAITING_CAPTURE"] and hasattr(self, 'camera_label'):
                         scaled = qt_img.scaled(self.camera_label.size(),
                                                Qt.KeepAspectRatio, Qt.SmoothTransformation)
@@ -298,14 +318,24 @@ class FreePhotobooth(PhotoboothApp):
                                                Qt.KeepAspectRatio, Qt.SmoothTransformation)
                         rounded = get_rounded_pixmap(scaled, radius=30)
                         self.interactive_camera_label.setPixmap(rounded)
+                        
+                        # Cập nhật thêm Camera mini ở sidebar (trang dashboard)
+                        if hasattr(self, 'interactive_camera_mini'):
+                            mini_scaled = qt_img.scaled(self.interactive_camera_mini.size(),
+                                                       Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                            mini_rounded = get_rounded_pixmap(mini_scaled, radius=20)
+                            self.interactive_camera_mini.setPixmap(mini_rounded)
 
                     self._read_fail_count = 0
                 else:
                     if not hasattr(self, '_read_fail_count'):
                         self._read_fail_count = 0
                     self._read_fail_count += 1
-                    if self._read_fail_count > 30:
-                        self.auto_select_camera()
+                    if self._read_fail_count > 60: # 2 giây mất hình
+                        print("[CAMERA] Thu ket noi lai DSLR/Webcam...")
+                        # Thử mở lại bằng index hiện tại
+                        self.cap.release()
+                        self.cap = cv2.VideoCapture(self.current_camera_index)
                         self._read_fail_count = 0
         except Exception as e:
             print(f"[WARNING] Loi trong update_camera_frame: {e}")
@@ -317,10 +347,14 @@ class FreePhotobooth(PhotoboothApp):
         # DỪNG GHI VIDEO khi nhấn "LẤY ẢNH"
         self._stop_video_recording()
         
-        # Dùng merged_image nếu có, nếu không dùng collage_image (từ interactive capture)
-        final_image = self.merged_image if self.merged_image is not None else self.collage_image
+        # ƯU TIÊN collage_image (vì ở Step 9, đây là ảnh đã có cả ảnh chụp & template)
+        # Nếu không có (lỗi gì đó) thì mới dùng merged_image
+        final_image = self.collage_image if self.collage_image is not None else self.merged_image
+        
         if final_image is None:
+            QMessageBox.warning(self, "Lỗi", "Không tìm thấy ảnh để lưu!")
             return
+            
         self.merged_image = final_image
 
         output_folder = r"D:\picture"

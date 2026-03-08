@@ -105,8 +105,8 @@ class CloudinaryLandingPageThread(QThread):
                     </div>
 
                     <div class="btn-group">
-                        <a href="{p_url}" download="photo.jpg" class="btn">⬇️ Tải Ảnh Thành Phẩm</a>
-                        {f'<a href="{v_url}" download="video.mp4" class="btn">⬇️ Tải Video Quá Trình</a>' if v_url else ""}
+                        <a href="{p_url}" download="photo.jpg" class="btn">⬇️ Tải Ảnh Của Bạn</a>
+                        {f'<a href="{v_url}" download="video.mp4" class="btn">⬇️ Tải Video Của Bạn</a>' if v_url else ""}
                     </div>
 
                     <div class="footer">

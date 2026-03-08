@@ -12,7 +12,7 @@ import cv2
 import numpy as np
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                              QPushButton, QFrame, QMessageBox, QSlider, QGroupBox,
-                             QComboBox, QLineEdit)
+                             QComboBox, QLineEdit, QSpinBox, QGridLayout)
 from PyQt5.QtCore import Qt, QPoint, QRect, QSize, QTimer
 from PyQt5.QtGui import QImage, QPixmap, QFont
 
@@ -237,6 +237,65 @@ def create_custom_editor_screen(app):
     )
     app.admin_slot_info_label.setWordWrap(True)
     ctrl_layout.addWidget(app.admin_slot_info_label)
+
+    # --- Bảng điều khiển tinh chỉnh Pixel ---
+    precision_group = QGroupBox("🎯 TINH CHỈNH TỪNG PIXEL")
+    precision_group.setStyleSheet("margin-top: 10px; color: #06d6a0;")
+    precision_layout = QGridLayout(precision_group)
+    precision_layout.setSpacing(10)
+
+    lbl_x = QLabel("X:")
+    app.spin_x = QSpinBox()
+    app.spin_x.setRange(-2000, 4000)
+    app.spin_x.setStyleSheet("background: #000; color: #fff; padding: 5px;")
+    
+    lbl_y = QLabel("Y:")
+    app.spin_y = QSpinBox()
+    app.spin_y.setRange(-2000, 4000)
+    app.spin_y.setStyleSheet("background: #000; color: #fff; padding: 5px;")
+
+    lbl_w = QLabel("Rộng:")
+    app.spin_w = QSpinBox()
+    app.spin_w.setRange(50, 4000)
+    app.spin_w.setStyleSheet("background: #000; color: #fff; padding: 5px;")
+
+    lbl_h = QLabel("Cao:")
+    app.spin_h = QSpinBox()
+    app.spin_h.setRange(50, 4000)
+    app.spin_h.setStyleSheet("background: #000; color: #aaa; padding: 5px;") # Cao thường tự tính
+    app.spin_h.setReadOnly(True) # Để đảm bảo tỉ lệ 4:3
+
+    precision_layout.addWidget(lbl_x, 0, 0)
+    precision_layout.addWidget(app.spin_x, 0, 1)
+    precision_layout.addWidget(lbl_y, 0, 2)
+    precision_layout.addWidget(app.spin_y, 0, 3)
+    precision_layout.addWidget(lbl_w, 1, 0)
+    precision_layout.addWidget(app.spin_w, 1, 1)
+    precision_layout.addWidget(lbl_h, 1, 2)
+    precision_layout.addWidget(app.spin_h, 1, 3)
+
+    # Kết nối sự kiện SpinBox -> Cập nhật layout
+    def on_spinner_changed():
+        if not hasattr(app, 'custom_editor_step'): return
+        idx = app.custom_canvas.selected_idx
+        if 0 <= idx < len(app.custom_editor_step.temp_slots):
+            # Lấy giá trị từ spinner
+            nx = app.spin_x.value()
+            ny = app.spin_y.value()
+            nw = app.spin_w.value()
+            # Tính nh theo tỉ lệ 4:3
+            nh = int(nw * ASPECT_RATIO[1] / ASPECT_RATIO[0])
+            app.spin_h.setValue(nh)
+            
+            # Cập nhật vào data
+            app.custom_editor_step.temp_slots[idx] = (nx, ny, nw, nh)
+            app.custom_editor_step.update_preview()
+
+    app.spin_x.valueChanged.connect(lambda: on_spinner_changed())
+    app.spin_y.valueChanged.connect(lambda: on_spinner_changed())
+    app.spin_w.valueChanged.connect(lambda: on_spinner_changed())
+
+    ctrl_layout.addWidget(precision_group)
     
     ctrl_layout.addSpacing(20)
     lbl_manage = QLabel("🗑️ QUẢN LÝ / XÓA LAYOUT:")
@@ -458,8 +517,34 @@ class CustomEditorLogic:
                     f"📐 Kích thước: {sw} × {sh} px  (tỉ lệ 4:3)"
                 )
                 self.app.admin_slot_info_label.setText(info)
+                
+                # Cập nhật các SpinBox (chặn signal để tránh loop)
+                if hasattr(self.app, 'spin_x'):
+                    self.app.spin_x.blockSignals(True)
+                    self.app.spin_y.blockSignals(True)
+                    self.app.spin_w.blockSignals(True)
+                    self.app.spin_h.blockSignals(True)
+
+                    self.app.spin_x.setValue(sx)
+                    self.app.spin_y.setValue(sy)
+                    self.app.spin_w.setValue(sw)
+                    self.app.spin_h.setValue(sh)
+
+                    self.app.spin_x.blockSignals(False)
+                    self.app.spin_y.blockSignals(False)
+                    self.app.spin_w.blockSignals(False)
+                    self.app.spin_h.blockSignals(False)
             else:
                 self.app.admin_slot_info_label.setText("Chưa chọn ô nào")
+                if hasattr(self.app, 'spin_x'):
+                    self.app.spin_x.setEnabled(False)
+                    self.app.spin_y.setEnabled(False)
+                    self.app.spin_w.setEnabled(False)
+                
+            if selected_idx >= 0 and hasattr(self.app, 'spin_x'):
+                self.app.spin_x.setEnabled(True)
+                self.app.spin_y.setEnabled(True)
+                self.app.spin_w.setEnabled(True)
 
         qt_img = self.convert_to_qt(canvas)
         pixmap = QPixmap.fromImage(qt_img).scaled(self.canvas_widget.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)

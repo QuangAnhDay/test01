@@ -6,123 +6,168 @@ Màn hình chọn kiểu lưới ảnh: Dạng Dọc và Dạng Custom.
 """
 
 from PyQt5.QtWidgets import (QWidget, QLabel, QPushButton, QVBoxLayout,
-                             QHBoxLayout, QFrame)
-from PyQt5.QtCore import Qt
+                             QHBoxLayout, QFrame, QSizePolicy)
+from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtGui import QPixmap, QIcon
+import os
 from src.shared.types.models import format_price, get_price_by_layout
 
-
 def create_package_screen(app):
-    """Tạo màn hình chọn kiểu lưới ảnh với 2 lựa chọn chính."""
+    """Tạo màn hình chọn kiểu lưới ảnh với layout mới: 2 hình ảnh máy ảnh và giá."""
     screen = QWidget()
+    
+    # Set nền màu giống hình ảnh (nếu cần thiết, hoặc dùng nền trong suốt để ăn theo QMainWindow)
+    screen.setStyleSheet("background-color: transparent;")
+    
     layout = QVBoxLayout(screen)
     layout.setAlignment(Qt.AlignCenter)
-    layout.setSpacing(40)
+    layout.setSpacing(0)
     layout.setContentsMargins(50, 50, 50, 50)
 
-    title = QLabel("🖼️ CHỌN KIỂU KHUNG ẢNH")
-    title.setObjectName("TitleLabel")
-    title.setAlignment(Qt.AlignCenter)
-    layout.addWidget(title)
-
-    subtitle = QLabel("Hãy chọn định dạng ảnh bạn muốn chụp")
-    subtitle.setObjectName("InfoLabel")
-    subtitle.setAlignment(Qt.AlignCenter)
-    layout.addWidget(subtitle)
-
-    # Thân màn hình chứa 2 nút lớn
+    # Thân màn hình chứa 2 lựa chọn lớn
     options_layout = QHBoxLayout()
-    options_layout.setSpacing(50)
+    options_layout.setSpacing(60)
     options_layout.setAlignment(Qt.AlignCenter)
 
-    btn_style = """
+    # Styles
+    price_btn_style = """
         QPushButton {
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                stop:0 #1a1a2e, stop:1 #16213e);
-            border: 5px solid #4361ee; border-radius: 30px;
-            color: white; padding: 40px; min-width: 400px; min-height: 500px;
+            background-color: #F15252; 
+            color: white; 
+            border: none;
+            border-radius: 15px; 
+            font-size: 40px; 
+            font-weight: bold;
+            padding: 20px 40px;
+            min-width: 400px;
+            font-family: 'Segoe UI', Arial, sans-serif;
         }
         QPushButton:hover {
-            border-color: #06d6a0;
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                stop:0 #16213e, stop:1 #1a1a2e);
+            background-color: #FF6B6B;
         }
-        QLabel { background: transparent; }
+        QPushButton:pressed {
+            background-color: #D33E42;
+        }
+    """
+    
+    img_btn_style = """
+        QPushButton {
+            background-color: transparent;
+            border: none;
+        }
+        QPushButton:hover {
+            background-color: rgba(255,255,255, 0.2);
+            border-radius: 20px;
+        }
     """
 
-    # --- NÚT DẠNG DỌC (STRIP) ---
-    btn_vertical = QPushButton()
-    btn_vertical.setStyleSheet(btn_style)
-    v_vbox = QVBoxLayout(btn_vertical)
-    
-    icon_vert = QLabel("🎞️")
-    icon_vert.setAlignment(Qt.AlignCenter)
-    icon_vert.setStyleSheet("font-size: 80px;")
-    
-    name_vert = QLabel("DẠNG DỌC")
-    name_vert.setAlignment(Qt.AlignCenter)
-    name_vert.setStyleSheet("font-size: 32px; font-weight: bold; color: #4361ee;")
-    
-    desc_vert = QLabel("4 Ảnh (1 dải dọc)\nPhổ biến nhất")
-    desc_vert.setAlignment(Qt.AlignCenter)
-    desc_vert.setStyleSheet("font-size: 18px; color: #a8dadc;")
+    # Helper function để tìm file ảnh
+    def get_image_path(filename):
+        paths = [
+            os.path.join(os.path.dirname(__file__), '../../../assets/images', filename),
+            os.path.join(os.path.dirname(__file__), '../../../public/type', filename),
+            os.path.join(os.path.dirname(__file__), '../../../public', filename),
+            f"D:\\photobooth2\\public\\type\\{filename}",
+            f"D:\\photobooth2\\public\\{filename}",
+            f"D:\\photobooth2\\assets\\images\\{filename}"
+        ]
+        for p in paths:
+            if os.path.exists(p):
+                return p
+        return None
 
-    price_val = get_price_by_layout("4x1")
-    price_vert = QLabel(format_price(price_val))
-    price_vert.setAlignment(Qt.AlignCenter)
-    price_vert.setStyleSheet("font-size: 24px; font-weight: bold; color: #06d6a0;")
+    # ==========================================
+    # LỰA CHỌN 1: DẠNG DỌC (60.000 VND)
+    # ==========================================
+    frame_1 = QFrame()
+    frame_1.setStyleSheet("background-color: rgba(255,255,255, 0.4); border-radius: 20px;")
+    layout_1 = QVBoxLayout(frame_1)
+    layout_1.setContentsMargins(30, 40, 30, 40)
+    layout_1.setSpacing(30)
+    layout_1.setAlignment(Qt.AlignBottom | Qt.AlignHCenter)
 
-    v_vbox.addWidget(icon_vert)
-    v_vbox.addWidget(name_vert)
-    v_vbox.addWidget(desc_vert)
-    v_vbox.addWidget(price_vert)
+    # Hình ảnh 1 
+    btn_img_1 = QPushButton()
+    btn_img_1.setStyleSheet(img_btn_style)
+    btn_img_1.setCursor(Qt.PointingHandCursor)
     
-    # Khi bấm vào DẠNG DỌC -> Hiển thị danh sách Layout (4x1, Custom_3, ...)
-    btn_vertical.clicked.connect(lambda: app.go_to_custom_layout_select("vertical"))
-    options_layout.addWidget(btn_vertical)
+    img_path_1 = get_image_path("package_1.png") # Đặt tên file ảnh máy ảnh 1 là package_1.png
+    if img_path_1:
+        pix_1 = QPixmap(img_path_1)
+        btn_img_1.setIcon(QIcon(pix_1))
+        btn_img_1.setIconSize(QSize(450, 450)) # Chỉnh kích thước hiển thị ảnh
+        btn_img_1.setFixedSize(450, 450)
+    else:
+        # Placeholder nếu chưa có ảnh
+        btn_img_1.setText("Chưa có ảnh (package_1.png)")
+        btn_img_1.setFixedSize(450, 450)
+        btn_img_1.setStyleSheet("background-color: #d1d8e0; border-radius: 20px; color: black; font-size: 20px;")
 
-    # --- NÚT DẠNG CUSTOM ---
-    btn_custom = QPushButton()
-    btn_custom.setStyleSheet(btn_style.replace("#4361ee", "#e94560")) # Màu đỏ
-    c_vbox = QVBoxLayout(btn_custom)
+    # Nút giá 1
+    price_val_1 = get_price_by_layout("4x1")
+    btn_price_1 = QPushButton(f"{format_price(price_val_1)}")
+    btn_price_1.setStyleSheet(price_btn_style)
+    btn_price_1.setCursor(Qt.PointingHandCursor)
+
+    layout_1.addWidget(btn_img_1, alignment=Qt.AlignCenter)
+    layout_1.addWidget(btn_price_1, alignment=Qt.AlignCenter)
+
+    # Kết nối sự kiện bấm (bấm vào hình hay nút đều được)
+    img1_action = lambda: app.go_to_custom_layout_select("vertical")
+    btn_img_1.clicked.connect(img1_action)
+    btn_price_1.clicked.connect(img1_action)
+
+    options_layout.addWidget(frame_1)
+
+    # ==========================================
+    # LỰA CHỌN 2: DẠNG CUSTOM (90.000 VND)
+    # ==========================================
+    frame_2 = QFrame()
+    frame_2.setStyleSheet("background-color: rgba(255,255,255, 0.4); border-radius: 20px;")
+    layout_2 = QVBoxLayout(frame_2)
+    layout_2.setContentsMargins(30, 40, 30, 40)
+    layout_2.setSpacing(30)
+    layout_2.setAlignment(Qt.AlignBottom | Qt.AlignHCenter)
+
+    # Hình ảnh 2
+    btn_img_2 = QPushButton()
+    btn_img_2.setStyleSheet(img_btn_style)
+    btn_img_2.setCursor(Qt.PointingHandCursor)
     
-    icon_cust = QLabel("🎨")
-    icon_cust.setAlignment(Qt.AlignCenter)
-    icon_cust.setStyleSheet("font-size: 80px;")
-    
-    name_cust = QLabel("KHUNG TÙY BIẾN")
-    name_cust.setAlignment(Qt.AlignCenter)
-    name_cust.setStyleSheet("font-size: 32px; font-weight: bold; color: #e94560;")
-    
-    desc_cust = QLabel("Chọn từ bộ sưu tập\nLayout đặc biệt")
-    desc_cust.setAlignment(Qt.AlignCenter)
-    desc_cust.setStyleSheet("font-size: 18px; color: #a8dadc;")
+    img_path_2 = get_image_path("package_2.png") # Đặt tên file ảnh máy ảnh 2 là package_2.png
+    if img_path_2:
+        pix_2 = QPixmap(img_path_2)
+        btn_img_2.setIcon(QIcon(pix_2))
+        btn_img_2.setIconSize(QSize(450, 450))
+        btn_img_2.setFixedSize(450, 450)
+    else:
+        btn_img_2.setText("Chưa có ảnh (package_2.png)")
+        btn_img_2.setFixedSize(450, 450)
+        btn_img_2.setStyleSheet("background-color: #d1d8e0; border-radius: 20px; color: black; font-size: 20px;")
 
-    price_cust_val = get_price_by_layout("2x2") # Lấy giá mặc định
-    price_cust = QLabel(format_price(price_cust_val))
-    price_cust.setAlignment(Qt.AlignCenter)
-    price_cust.setStyleSheet("font-size: 24px; font-weight: bold; color: #06d6a0;")
+    # Nút giá 2
+    price_val_2 = get_price_by_layout("2x2")
+    btn_price_2 = QPushButton(f"{format_price(price_val_2)}")
+    btn_price_2.setStyleSheet(price_btn_style)
+    btn_price_2.setCursor(Qt.PointingHandCursor)
 
-    c_vbox.addWidget(icon_cust)
-    c_vbox.addWidget(name_cust)
-    c_vbox.addWidget(desc_cust)
-    c_vbox.addWidget(price_cust)
-    
-    # Khi bấm vào KHUNG TÙY BIẾN -> Hiển thị danh sách Layout để chọn
-    btn_custom.clicked.connect(lambda: app.go_to_custom_layout_select("custom"))
-    options_layout.addWidget(btn_custom)
+    layout_2.addWidget(btn_img_2, alignment=Qt.AlignCenter)
+    layout_2.addWidget(btn_price_2, alignment=Qt.AlignCenter)
 
+    # Kết nối sự kiện bấm
+    img2_action = lambda: app.go_to_custom_layout_select("custom")
+    btn_img_2.clicked.connect(img2_action)
+    btn_price_2.clicked.connect(img2_action)
 
+    options_layout.addWidget(frame_2)
+
+    # Đưa khối options vào màn hình
     layout.addLayout(options_layout)
 
     # Ghi nhận các nút vào app để quản lý nếu cần
-    app.btn_vert_layout = btn_vertical
-    app.btn_cust_layout = btn_custom
+    app.btn_vert_layout = btn_img_1
+    app.btn_cust_layout = btn_img_2
 
-    # Nút quay lại
-    btn_back = QPushButton("⬅️ QUAY LẠI")
-    btn_back.setObjectName("OrangeBtn")
-    btn_back.setFixedSize(250, 70)
-    btn_back.clicked.connect(app.reset_all)
-    layout.addWidget(btn_back, alignment=Qt.AlignCenter)
+
 
     return screen
