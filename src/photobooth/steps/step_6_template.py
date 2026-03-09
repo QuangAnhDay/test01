@@ -4,40 +4,30 @@
 import sys
 import os
 from PyQt5.QtWidgets import (QWidget, QLabel, QPushButton, QVBoxLayout,
-                             QHBoxLayout, QScrollArea, QFrame, QApplication)
+                             QHBoxLayout, QScrollArea, QFrame, QApplication,
+                             QScroller, QScrollerProperties)
 from PyQt5.QtCore import Qt, QPoint, QSize
 from PyQt5.QtGui import QPixmap, QFont, QIcon
 
 class ClickAndDragScrollArea(QScrollArea):
-    """ScrollArea hỗ trợ kéo chuột/vuốt để cuộn ngang."""
+    """ScrollArea hỗ trợ kéo chuột/vuốt mượt mà kiểu điện thoại (Kinetic Scrolling)."""
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.last_pos = QPoint()
-        self.scrolling = False
         self.setWidgetResizable(True)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setStyleSheet("background: transparent; border: none;")
 
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self.last_pos = event.pos()
-            self.scrolling = True
-            self.setCursor(Qt.ClosedHandCursor)
-        super().mousePressEvent(event)
-
-    def mouseMoveEvent(self, event):
-        if self.scrolling:
-            delta = event.pos().x() - self.last_pos.x()
-            self.horizontalScrollBar().setValue(self.horizontalScrollBar().value() - delta)
-            self.last_pos = event.pos()
-        super().mouseMoveEvent(event)
-
-    def mouseReleaseEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self.scrolling = False
-            self.setCursor(Qt.ArrowCursor)
-        super().mouseReleaseEvent(event)
+        # Kích hoạt QScroller để vuốt/kéo mượt mà
+        scroller = QScroller.scroller(self.viewport())
+        scroller.grabGesture(self.viewport(), QScroller.LeftMouseButtonGesture)
+        
+        # Tinh chỉnh thuộc tính scroller để mượt hơn
+        props = scroller.scrollerProperties()
+        # Cho phép kéo nhạy hơn
+        props.setScrollMetric(QScrollerProperties.DragStartDistance, 0.001)
+        props.setScrollMetric(QScrollerProperties.ScrollingCurve, 4) 
+        scroller.setScrollerProperties(props)
 
 def create_template_screen(app):
     """

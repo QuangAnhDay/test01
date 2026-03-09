@@ -304,6 +304,11 @@ class PhotoboothApp(QMainWindow):
         scroll.setWidgetResizable(True)
         scroll.setStyleSheet("background-color: transparent; border: none;")
         
+        # Kích hoạt QScroller để vuốt/kéo mượt mà
+        from PyQt5.QtWidgets import QScroller
+        scroller = QScroller.scroller(scroll.viewport())
+        scroller.grabGesture(scroll.viewport(), QScroller.LeftMouseButtonGesture)
+        
         self.layout_options_widget = QWidget()
         self.layout_options_layout = QHBoxLayout(self.layout_options_widget)
         self.layout_options_layout.setSpacing(40)
