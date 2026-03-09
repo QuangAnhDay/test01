@@ -89,15 +89,15 @@ def create_template_screen(app):
     app.filter_container.setStyleSheet("background-color: #FADBDC; border-radius: 25px; border: 5px solid white;")
     
     filter_layout = QHBoxLayout(app.filter_container)
-    filter_layout.setContentsMargins(60, 0, 60, 15)
-    filter_layout.setSpacing(40)
+    filter_layout.setContentsMargins(5, 5, 60, 15) # Changed left margin from 60 to 20
+    filter_layout.setSpacing(63)
 
     app.btn_filter_3 = QPushButton("khung 3 ảnh")
     app.btn_filter_4 = QPushButton("khung 4 ảnh")
     app.btn_filter_all = QPushButton("tất cả khung") # Nút mới
     
     for btn in [app.btn_filter_3, app.btn_filter_4, app.btn_filter_all]:
-        btn.setFixedSize(320, 80)
+        btn.setFixedSize(375, 100)
         btn.setCheckable(True)
         btn.setStyleSheet("""
             QPushButton {
@@ -150,7 +150,7 @@ def create_template_screen(app):
     preview_container = QFrame(screen)
     # Tinh chỉnh vị trí: setGeometry(X, Y, Rộng, Cao)
     preview_container.setGeometry(1240, 40, 640, 840) 
-    preview_container.setStyleSheet("background-color: white; border-radius: 40px;")
+    preview_container.setStyleSheet("background-color: #FADBDC; border-radius: 40px; border: 5px solid white;")
     
     preview_layout = QVBoxLayout(preview_container)
     preview_layout.setContentsMargins(25, 25, 25, 25)

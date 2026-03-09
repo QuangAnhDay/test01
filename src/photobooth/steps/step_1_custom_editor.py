@@ -16,8 +16,8 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
 from PyQt5.QtCore import Qt, QPoint, QRect, QSize, QTimer
 from PyQt5.QtGui import QImage, QPixmap, QFont
 
-# Tỉ lệ cố định cho ô ảnh
-ASPECT_RATIO = (4, 3)  # width : height = 4 : 3
+# Tỉ lệ mặc định (sẽ được ghi đè bởi CustomEditorLogic)
+DEFAULT_ASPECT_RATIO = (4, 3)  
 
 class InteractiveCanvas(QLabel):
     """Màn hình preview có thể kéo thả các ô ảnh trực quan."""
@@ -74,9 +74,10 @@ class InteractiveCanvas(QLabel):
         x, y, w, h = self.step.temp_slots[self.selected_idx]
 
         if self.resizing:
-            # Khóa tỉ lệ 4:3: chỉ dùng diff.x để tính, chiều cao tự theo
+            # Sử dụng tỉ lệ từ logic (đã hỗ trợ xoay)
+            ratio = self.step.get_aspect_ratio()
             new_w = max(120, w + diff.x())
-            new_h = int(new_w * ASPECT_RATIO[1] / ASPECT_RATIO[0])
+            new_h = int(new_w * ratio[1] / ratio[0])
             self.step.temp_slots[self.selected_idx] = (x, y, new_w, new_h)
         elif self.dragging:
             self.step.temp_slots[self.selected_idx] = (x + diff.x(), y + diff.y(), w, h)
@@ -144,6 +145,12 @@ def create_custom_editor_screen(app):
     btn_clear.setStyleSheet("background-color: #e94560; padding: 10px 20px; border-radius: 10px; margin-left:10px;")
     btn_clear.clicked.connect(lambda: app.custom_editor_step.clear_slots())
     top_bar.addWidget(btn_clear)
+
+    # Nút Xoay màn hình / camera
+    btn_rotate = QPushButton("🔄 XOAY 90°")
+    btn_rotate.setStyleSheet("background-color: #fb8500; padding: 10px 20px; border-radius: 10px; margin-left:10px; font-weight: bold;")
+    btn_rotate.clicked.connect(lambda: app.custom_editor_step.toggle_rotation())
+    top_bar.addWidget(btn_rotate)
 
     # Nút bật/tắt lưới căn chỉnh
     btn_grid = QPushButton("📐 LƯỚI")
@@ -279,13 +286,19 @@ def create_custom_editor_screen(app):
         if not hasattr(app, 'custom_editor_step'): return
         idx = app.custom_canvas.selected_idx
         if 0 <= idx < len(app.custom_editor_step.temp_slots):
-            # Lấy giá trị từ spinner
+            # Lấy giá trị từ các spinner
             nx = app.spin_x.value()
             ny = app.spin_y.value()
             nw = app.spin_w.value()
-            # Tính nh theo tỉ lệ 4:3
-            nh = int(nw * ASPECT_RATIO[1] / ASPECT_RATIO[0])
+
+            # Tính nh theo tỉ lệ hiện tại
+            ratio = app.custom_editor_step.get_aspect_ratio()
+            nh = int(nw * ratio[1] / ratio[0])
+            
+            # Cập nhật hiển thị spin_h (chặn signal để tránh đệ quy)
+            app.spin_h.blockSignals(True)
             app.spin_h.setValue(nh)
+            app.spin_h.blockSignals(False)
             
             # Cập nhật vào data
             app.custom_editor_step.temp_slots[idx] = (nx, ny, nw, nh)
@@ -397,9 +410,36 @@ class CustomEditorLogic:
         self.app = app
         self.canvas_w = 600
         self.canvas_h = 1800
-        self.temp_slots = [(100, 100, 400, 300)]  # 400:300 = 4:3
+        self.temp_slots = [(100, 100, 400, 300)]
         self.canvas_widget = None
         self.show_grid = True  # Lưới căn chỉnh mặc định BẬT
+        self.rotation = 0      # 0, 90, 180, 270
+
+    def get_aspect_ratio(self):
+        """Trả về tỉ lệ (w, h) dựa trên trạng thái xoay."""
+        if self.rotation % 180 == 90:
+            return (3, 4) # Portrait
+        return (4, 3)    # Landscape
+
+    def toggle_rotation(self):
+        """Xoay màn hình và ô ảnh 90 độ."""
+        self.rotation = (self.rotation + 90) % 360
+        
+        # Cập nhật lại tỉ lệ cho các ô hiện có
+        ratio = self.get_aspect_ratio()
+        new_slots = []
+        for x, y, w, h in self.temp_slots:
+            # Khi xoay, swap w và h để khớp tỉ lệ mới
+            # Nhưng để đơn giản và chính xác theo yêu cầu, ta ép w và tính lại h theo ratio
+            new_w = w
+            new_h = int(new_w * ratio[1] / ratio[0])
+            new_slots.append((x, y, new_w, new_h))
+        
+        self.temp_slots = new_slots
+        self.update_preview()
+        
+        status = f"Đã xoay {self.rotation}°. Tỉ lệ ô: {ratio[0]}:{ratio[1]}"
+        QMessageBox.information(None, "Xoay màn hình", status)
 
     def toggle_grid(self, checked):
         """Bật/tắt hiển thị lưới căn chỉnh."""
@@ -410,9 +450,10 @@ class CustomEditorLogic:
         """Đặt kích thước canvas cố định theo loại khung."""
         self.canvas_w = w
         self.canvas_h = h
-        # Đặt lại slot mặc định phù hợp với canvas mới, giữ tỉ lệ 4:3
+        # Đặt lại slot mặc định phù hợp với canvas mới, giữ tỉ lệ
+        ratio = self.get_aspect_ratio()
         default_slot_w = min(400, w - 40)
-        default_slot_h = int(default_slot_w * ASPECT_RATIO[1] / ASPECT_RATIO[0])
+        default_slot_h = int(default_slot_w * ratio[1] / ratio[0])
         self.temp_slots = [(20, 20, default_slot_w, default_slot_h)]
         
         # Reset selection để tránh IndexError
@@ -422,10 +463,11 @@ class CustomEditorLogic:
         self.update_preview()
 
     def add_slot(self):
-        # Tính vị trí slot mới dựa trên canvas hiện tại, giữ tỉ lệ 4:3
+        # Tính vị trí slot mới dựa trên canvas hiện tại, giữ tỉ lệ
+        ratio = self.get_aspect_ratio()
         offset_y = len(self.temp_slots) * 50
         slot_w = min(400, self.canvas_w - 40)
-        slot_h = int(slot_w * ASPECT_RATIO[1] / ASPECT_RATIO[0])
+        slot_h = int(slot_w * ratio[1] / ratio[0])
         self.temp_slots.append((20, 20 + offset_y, slot_w, slot_h))
         self.update_preview()
 
@@ -512,9 +554,10 @@ class CustomEditorLogic:
         if hasattr(self.app, 'admin_slot_info_label'):
             if selected_idx >= 0 and selected_idx < len(self.temp_slots):
                 sx, sy, sw, sh = self.temp_slots[selected_idx]
+                ratio = self.get_aspect_ratio()
                 info = (
                     f"📍 Ô #{selected_idx+1}:  X={sx}, Y={sy}\n"
-                    f"📐 Kích thước: {sw} × {sh} px  (tỉ lệ 4:3)"
+                    f"📐 Kích thước: {sw} × {sh} px  (tỉ lệ {ratio[0]}:{ratio[1]})"
                 )
                 self.app.admin_slot_info_label.setText(info)
                 
@@ -528,7 +571,10 @@ class CustomEditorLogic:
                     self.app.spin_x.setValue(sx)
                     self.app.spin_y.setValue(sy)
                     self.app.spin_w.setValue(sw)
+                    # Cập nhật spin_h để hiển thị đúng số pixel
+                    self.app.spin_h.blockSignals(True)
                     self.app.spin_h.setValue(sh)
+                    self.app.spin_h.blockSignals(False)
 
                     self.app.spin_x.blockSignals(False)
                     self.app.spin_y.blockSignals(False)
@@ -586,7 +632,8 @@ class CustomEditorLogic:
         layout_config = {
             "CANVAS_W": self.canvas_w,
             "CANVAS_H": self.canvas_h,
-            "SLOTS": self.temp_slots
+            "SLOTS": self.temp_slots,
+            "rotation": self.rotation # Lưu hướng xoay
         }
         
         if save_custom_layout(name, layout_config, group=group):

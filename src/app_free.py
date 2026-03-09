@@ -61,6 +61,10 @@ class FreePhotobooth(PhotoboothApp):
         self.selected_frame_count = 4
         self.payment_confirmed = True
 
+        # Cache cho layout và rotation (để tối ưu update_camera_frame)
+        self._cached_layout_type = None
+        self._cached_rotation = 0
+
         print("\n" + "=" * 60)
         print("FREE MODE ACTIVATED")
         print("=" * 60)
@@ -217,6 +221,22 @@ class FreePhotobooth(PhotoboothApp):
 
                 ret, frame = self.cap.read()
                 if ret and frame is not None:
+                    # Chỉ lấy cấu hình nếu layout thay đổi (để tối ưu)
+                    curr_layout = getattr(self, 'layout_type', '4x1')
+                    if curr_layout != self._cached_layout_type:
+                        from src.shared.types.models import get_layout_config
+                        l_cfg = get_layout_config(curr_layout)
+                        self._cached_rotation = l_cfg.get("rotation", 0)
+                        self._cached_layout_type = curr_layout
+
+                    # Áp dụng xoay
+                    if self._cached_rotation == 90:
+                        frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+                    elif self._cached_rotation == 180:
+                        frame = cv2.rotate(frame, cv2.ROTATE_180)
+                    elif self._cached_rotation == 270:
+                        frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
                     frame = cv2.flip(frame, 1)
                     self.current_frame = frame.copy()
 

@@ -132,11 +132,14 @@ LAYOUT_4x1 = {
 CUSTOM_LAYOUTS_FILE = "custom_layouts.json"
 CUSTOM_LAYOUTS = {}
 
-def load_custom_layouts():
+def load_custom_layouts(force_reload=False):
     """Tải các layout custom từ file json."""
     global CUSTOM_LAYOUTS
-    CUSTOM_LAYOUTS.clear()  # Đảm bảo xóa trắng trước khi nạp lại
     
+    # Chỉ load nếu chưa có dữ liệu hoặc yêu cầu load lại
+    if CUSTOM_LAYOUTS and not force_reload:
+        return CUSTOM_LAYOUTS
+        
     if not os.path.exists(CUSTOM_LAYOUTS_FILE) or os.path.getsize(CUSTOM_LAYOUTS_FILE) == 0:
         return {}
         
@@ -152,7 +155,6 @@ def load_custom_layouts():
                     val["SLOTS"] = [tuple(s) for s in val["SLOTS"]]
             
             CUSTOM_LAYOUTS.update(data)
-            print(f"[DEBUG] load_custom_layouts: Loaded {len(CUSTOM_LAYOUTS)} layouts")
             return CUSTOM_LAYOUTS
     except Exception as e:
         print(f"Lỗi đọc custom_layouts.json: {e}")
@@ -173,14 +175,17 @@ def get_layout_config(layout_type):
     if layout_type in DEFAULT_LAYOUTS:
         return DEFAULT_LAYOUTS[layout_type]
     
-    # Reload để đảm bảo layout mới nhất từ admin
-    load_custom_layouts()
+    # Dùng dữ liệu đã load sẵn
     if layout_type in CUSTOM_LAYOUTS:
-        cfg = CUSTOM_LAYOUTS[layout_type]
-        print(f"[DEBUG] get_layout_config(Custom): {layout_type} -> {len(cfg.get('SLOTS', []))} slots")
-        return cfg
+        return CUSTOM_LAYOUTS[layout_type]
     
-    print(f"[DEBUG] get_layout_config(Default): {layout_type} (falling back to 4x1)")
+    # Nếu không thấy và chưa load bao giờ, thử load một lần
+    if not CUSTOM_LAYOUTS:
+        load_custom_layouts()
+        if layout_type in CUSTOM_LAYOUTS:
+            return CUSTOM_LAYOUTS[layout_type]
+    
+    # Trả về mặc định nếu không tìm thấy
     return DEFAULT_LAYOUTS.get("4x1")
 
 
@@ -205,7 +210,8 @@ def save_custom_layout(name, config, group="custom"):
         "CANVAS_W": config.get("CANVAS_W", 800),
         "CANVAS_H": config.get("CANVAS_H", 1200),
         "SLOTS": slots_list,
-        "group": group  # Phân loại: 'vertical' hoặc 'custom'
+        "group": group,  # Phân loại: 'vertical' hoặc 'custom'
+        "rotation": config.get("rotation", 0)  # Hướng xoay: 0, 90, 180, 270
     }
     
     try:

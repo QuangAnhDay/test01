@@ -159,6 +159,10 @@ class PhotoboothApp(QMainWindow):
         self.current_transaction_code = ""
         self.current_amount = 0
 
+        # Cache cho layout và rotation
+        self._cached_layout_type = None
+        self._cached_rotation = 0
+
         # Gallery photos
         self.gallery_photos = load_sample_photos()
 
@@ -367,17 +371,40 @@ class PhotoboothApp(QMainWindow):
 
         for idx, path in enumerate(self.templates):
             btn = QPushButton()
-            btn.setFixedSize(220, 320)
-            pix = QPixmap(path).scaled(200, 300, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            # Tự động chọn kích thước dựa trên nhóm filter hiện tại
+            is_custom = getattr(self, '_current_group_filter', '') == "custom"
+            
+            # Khắc phục lỗi hiển thị icon bị đen xì ở các slot trong suốt:
+            # Load template và vẽ đè lên một nền trắng trước khi làm Icon.
+            temp_pix = QPixmap(path)
+            if not temp_pix.isNull():
+                final_pix = QPixmap(temp_pix.size())
+                final_pix.fill(Qt.white)
+                from PyQt5.QtGui import QPainter
+                painter = QPainter(final_pix)
+                painter.drawPixmap(0, 0, temp_pix)
+                painter.end()
+            else:
+                final_pix = temp_pix
+
+            if is_custom:
+                btn.setFixedSize(450, 680)
+                pix = final_pix.scaled(430, 660, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                btn.setIconSize(QSize(430, 660))
+            else:
+                btn.setFixedSize(230, 680)
+                pix = final_pix.scaled(210, 660, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                btn.setIconSize(QSize(210, 660))
+
             btn.setIcon(QIcon(pix))
-            btn.setIconSize(QSize(200, 300))
             btn.setCheckable(True)
             btn.setStyleSheet("""
                 QPushButton {
                     background: transparent; border: none;
+                    border-radius: 20px;
                 }
-                QPushButton:checked { border: 5px solid #F8D7D8; border-radius: 15px; }
-                QPushButton:hover { border: 2px solid #F1C4C5; border-radius: 15px; }
+                QPushButton:checked { background-color: #F55454; border: 4px solid white; }
+                QPushButton:hover { background-color: rgba(255, 87, 34, 0.2); }
             """)
             btn.clicked.connect(lambda checked, p=path, b=btn: self.apply_template(p, b))
             self.template_btn_layout.addWidget(btn)
@@ -484,6 +511,22 @@ class PhotoboothApp(QMainWindow):
         if self.state in ["START", "CAPTURING", "WAITING_CAPTURE", "INTERACTIVE_CAPTURE"]:
             ret, frame = self.cap.read()
             if ret and frame is not None:
+                # Chỉ lấy cấu hình nếu layout thay đổi (để tối ưu)
+                curr_layout = getattr(self, 'layout_type', '4x1')
+                if curr_layout != self._cached_layout_type:
+                    from src.shared.types.models import get_layout_config
+                    l_cfg = get_layout_config(curr_layout)
+                    self._cached_rotation = l_cfg.get("rotation", 0)
+                    self._cached_layout_type = curr_layout
+
+                # Áp dụng xoay
+                if self._cached_rotation == 90:
+                    frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+                elif self._cached_rotation == 180:
+                    frame = cv2.rotate(frame, cv2.ROTATE_180)
+                elif self._cached_rotation == 270:
+                    frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
                 self._cam_read_fail_count = 0
                 frame = cv2.flip(frame, 1)
                 
@@ -706,17 +749,39 @@ class PhotoboothApp(QMainWindow):
 
         for idx, path in enumerate(self.templates):
             btn = QPushButton()
-            btn.setFixedSize(220, 320)
-            pix = QPixmap(path).scaled(200, 300, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            # Tự động chọn kích thước dựa trên nhóm filter hiện tại
+            is_custom = getattr(self, '_current_group_filter', '') == "custom"
+            
+            # Khắc phục lỗi hiển thị icon bị đen xì ở các slot trong suốt:
+            temp_pix = QPixmap(path)
+            if not temp_pix.isNull():
+                final_pix = QPixmap(temp_pix.size())
+                final_pix.fill(Qt.white)
+                from PyQt5.QtGui import QPainter
+                painter = QPainter(final_pix)
+                painter.drawPixmap(0, 0, temp_pix)
+                painter.end()
+            else:
+                final_pix = temp_pix
+
+            if is_custom:
+                btn.setFixedSize(450, 680)
+                pix = final_pix.scaled(430, 660, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                btn.setIconSize(QSize(430, 660))
+            else:
+                btn.setFixedSize(230, 680)
+                pix = final_pix.scaled(210, 660, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                btn.setIconSize(QSize(210, 660))
+
             btn.setIcon(QIcon(pix))
-            btn.setIconSize(QSize(200, 300))
             btn.setCheckable(True)
             btn.setStyleSheet("""
                 QPushButton {
                     background: transparent; border: none;
+                    border-radius: 20px;
                 }
-                QPushButton:checked { border: 5px solid #F8D7D8; border-radius: 15px; }
-                QPushButton:hover { border: 2px solid #F1C4C5; border-radius: 15px; }
+                QPushButton:checked { background-color: #F55454; border: 4px solid white; }
+                QPushButton:hover { background-color: rgba(255, 87, 34, 0.2); }
             """)
             btn.clicked.connect(lambda checked, p=path, b=btn: self.apply_template(p, b))
             self.template_btn_layout.addWidget(btn)
@@ -756,7 +821,9 @@ class PhotoboothApp(QMainWindow):
         elif self.layout_type:
             cfg = get_layout_config(self.layout_type)
             bw, bh = cfg.get("CANVAS_W", 800), cfg.get("CANVAS_H", 600)
-            blank = np.zeros((bh, bw, 3), dtype=np.uint8) + 200
+            # Tạo nền hồng nhạt sang trọng (#FFF5F5 -> BGR: 245, 245, 255)
+            blank = np.zeros((bh, bw, 3), dtype=np.uint8)
+            blank[:] = (245, 245, 255) 
             
             # Chuyển từ numpy array sang QImage
             qt_img = QImage(blank.data, bw, bh, bw * 3, QImage.Format_RGB888)
@@ -814,17 +881,26 @@ class PhotoboothApp(QMainWindow):
 
         for idx, path in enumerate(self.templates):
             btn = QPushButton()
-            btn.setFixedSize(220, 320)
-            pix = QPixmap(path).scaled(200, 300, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            # Tự động chọn kích thước dựa trên nhóm filter hiện tại
+            is_custom = getattr(self, '_current_group_filter', '') == "custom"
+            if is_custom:
+                btn.setFixedSize(450, 680)
+                pix = QPixmap(path).scaled(430, 660, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                btn.setIconSize(QSize(430, 660))
+            else:
+                btn.setFixedSize(230, 680)
+                pix = QPixmap(path).scaled(210, 660, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                btn.setIconSize(QSize(210, 660))
+
             btn.setIcon(QIcon(pix))
-            btn.setIconSize(QSize(200, 300))
             btn.setCheckable(True)
             btn.setStyleSheet("""
                 QPushButton {
                     background: transparent; border: none;
+                    border-radius: 20px;
                 }
-                QPushButton:checked { border: 5px solid #F8BBD0; border-radius: 15px; }
-                QPushButton:hover { border: 2px solid #F1C4C5; border-radius: 15px; }
+                QPushButton:checked { background-color: #FF5722; border: 4px solid white; }
+                QPushButton:hover { background-color: rgba(255, 87, 34, 0.2); }
             """)
             btn.clicked.connect(lambda checked, p=path, b=btn: self.apply_template(p, b))
             self.template_btn_layout.addWidget(btn)
@@ -865,9 +941,10 @@ class PhotoboothApp(QMainWindow):
         if self.collage_image is not None:
             self.merged_image = apply_template_overlay(self.collage_image, template_path)
         else:
-            # Chưa có ảnh -> Tạo canvas trống theo kích thước Layout mới + đè template lên
+            # Chưa có ảnh -> Tạo canvas trống với màu hồng nhạt sang trọng + đè template lên
             bw, bh = cfg.get("CANVAS_W", 800), cfg.get("CANVAS_H", 600)
-            blank = np.zeros((bh, bw, 3), dtype=np.uint8) + 240
+            blank = np.zeros((bh, bw, 3), dtype=np.uint8)
+            blank[:] = (245, 245, 255) 
             self.merged_image = apply_template_overlay(blank, template_path)
             
         self.update_template_preview()
@@ -1016,8 +1093,9 @@ class PhotoboothApp(QMainWindow):
         cfg = get_layout_config(self.layout_type)
         bw, bh = cfg.get("CANVAS_W", 800), cfg.get("CANVAS_H", 1200)
         
-        # Canvas xám nhạt
-        canvas = np.zeros((bh, bw, 3), dtype=np.uint8) + 240
+        # Nền hồng nhạt sang trọng (#FFF5F5 -> BGR: 245, 245, 255)
+        canvas = np.zeros((bh, bw, 3), dtype=np.uint8)
+        canvas[:] = (245, 245, 255)
         
         # Lấy Slots (Nếu 4x1 thì tự tính nếu cfg trống)
         slots = cfg.get("SLOTS", [])
@@ -1034,8 +1112,8 @@ class PhotoboothApp(QMainWindow):
                 resized = cv2.resize(cropped, (sw, sh))
                 canvas[sy:sy+sh, sx:sx+sw] = resized
             else:
-                # Vẽ ô trống màu hồng nhạt như mockup (#FFDBDB -> BGR: 219, 219, 255)
-                cv2.rectangle(canvas, (sx, sy), (sx+sw, sy+sh), (219, 219, 255), -1)
+                # Vẽ ô trống màu trắng hồng nhẹ (#FFF9F9 -> BGR: 249, 249, 255)
+                cv2.rectangle(canvas, (sx, sy), (sx+sw, sy+sh), (249, 249, 255), -1)
         
         # Vẽ viền bao quanh toàn bộ canvas để thấy rõ biên
         cv2.rectangle(canvas, (0, 0), (bw-1, bh-1), (0, 0, 0), 5)
