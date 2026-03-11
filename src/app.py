@@ -585,11 +585,11 @@ class PhotoboothApp(QMainWindow):
                     # Cập nhật Camera mini ở sidebar (Page 0)
                     if hasattr(self, 'interactive_camera_mini'):
                         from src.shared.utils.helpers import get_rounded_pixmap
-                        mini_w = self.interactive_camera_mini.width() - 20
-                        mini_h = self.interactive_camera_mini.height() - 20
+                        mini_w = self.interactive_camera_mini.width() - 12
+                        mini_h = self.interactive_camera_mini.height() - 12
                         mini_scaled = qt_img_display.scaled(mini_w, mini_h,
                                                    Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
-                        mini_rounded = get_rounded_pixmap(mini_scaled, radius=25) 
+                        mini_rounded = get_rounded_pixmap(mini_scaled, radius=20) 
                         self.interactive_camera_mini.setPixmap(mini_rounded)
             else:
                 self._cam_read_fail_count += 1

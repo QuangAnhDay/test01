@@ -99,8 +99,8 @@ class CameraWorkerThread(QThread):
                 # Lật ngang (mirror effect)
                 frame = cv2.flip(frame, 1)
 
-                # Resize và convert sang RGB
-                frame = cv2.resize(frame, (730, 470))
+                # Resize và convert sang RGB (Trừ đi 10px mỗi chiều cho viền trắng 5px)
+                frame = cv2.resize(frame, (720, 460))
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
                 # Convert sang QImage
@@ -204,28 +204,46 @@ class CameraView(QFrame):
     def __init__(self, initial_camera_index=0, parent=None):
         super().__init__(parent)
 
-        # Cấu hình giao diện
+        # Cấu hình container chính (Khung trắng bo góc)
         self.setFixedSize(730, 470)
+        self.setObjectName("cameraViewFrame")
         self.setStyleSheet("""
-            QFrame {
-                background-color: #000000;
+            #cameraViewFrame {
+                background-color: white;
                 border-radius: 24px;
             }
         """)
 
-        # Layout
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+        # Áp dụng mask cho container ngoài để chắc chắn viền trắng bo tròn
+        self._apply_outer_mask()
+
+        # Khung đen bên trong để chứa camera feed (Lọt lòng 5px)
+        self.inner_frame = QFrame(self)
+        self.inner_frame.setFixedSize(720, 460)
+        self.inner_frame.move(5, 5)
+        self.inner_frame.setObjectName("cameraInner")
+        self.inner_frame.setStyleSheet("""
+            #cameraInner {
+                background-color: black;
+                border-radius: 19px;
+            }
+        """)
+        
+        # Áp dụng mask cho khung đen để bo cả feed camera bên trong
+        inner_path = QPainterPath()
+        inner_path.addRoundedRect(QRectF(0, 0, 720, 460), 19, 19)
+        self.inner_frame.setMask(QRegion(inner_path.toFillPolygon().toPolygon()))
+
+        # Layout trong khung đen
+        inner_layout = QVBoxLayout(self.inner_frame)
+        inner_layout.setContentsMargins(0, 0, 0, 0)
 
         # Label hiển thị camera feed
-        self.image_label = QLabel("Camera Offline")
+        self.image_label = QLabel("Camera Offline", self.inner_frame)
         self.image_label.setAlignment(Qt.AlignCenter)
-        self.image_label.setStyleSheet("border-radius: 24px; color: #FFFFFF;")
-        self.image_label.setFixedSize(730, 470)
-        layout.addWidget(self.image_label)
-
-        self._create_rounded_mask() 
+        self.image_label.setStyleSheet("color: white; background: transparent;")
+        self.image_label.setFixedSize(720, 460)
+        inner_layout.addWidget(self.image_label)
 
         # Camera worker thread
         self.camera_worker = CameraWorkerThread()
@@ -286,8 +304,7 @@ class CameraView(QFrame):
         self.camera_changed.emit(camera_index)
 
     def display_frame(self, qt_image):
-        """Hiển thị frame lên giao diện với bo góc"""
-        # Chuyển QImage sang QPixmap nếu cần
+        """Hiển thị frame lên giao diện"""
         if isinstance(qt_image, QImage):
             pixmap = QPixmap.fromImage(qt_image)
         elif isinstance(qt_image, QPixmap):
@@ -295,10 +312,7 @@ class CameraView(QFrame):
         else:
             return
 
-        # Tạo pixmap bo góc
-        rounded_pixmap = self._create_rounded_pixmap(pixmap, 24)
-
-        self.image_label.setPixmap(rounded_pixmap)
+        self.image_label.setPixmap(pixmap)
 
     def _create_rounded_pixmap(self, pixmap, radius=24):
         """Tạo pixmap với các góc bo tròn"""
@@ -323,12 +337,12 @@ class CameraView(QFrame):
 
         return QPixmap.fromImage(image)
 
-    def _create_rounded_mask(self):
-        """Tạo mask bo góc cho label"""
+    def _apply_outer_mask(self):
+        """Tạo mask bo góc cho toàn bộ khung trắng ngoài cùng"""
         path = QPainterPath()
         path.addRoundedRect(QRectF(0, 0, 730, 470), 24, 24)
         region = QRegion(path.toFillPolygon().toPolygon())
-        self.image_label.setMask(region)
+        self.setMask(region)
 
     def handle_camera_error(self, error_message):
         """Xử lý lỗi camera"""

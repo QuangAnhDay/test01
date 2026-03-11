@@ -66,13 +66,13 @@ def create_interactive_capture_screen(app):
 
     # Label Camera Mini (Tỷ lệ 4:3, bo góc)
     app.interactive_camera_mini = QLabel()
-    app.interactive_camera_mini.setFixedSize(560, 420) 
+    app.interactive_camera_mini.setFixedSize(550, 420) 
     app.interactive_camera_mini.setAlignment(Qt.AlignCenter)
     app.interactive_camera_mini.setStyleSheet("""
         background-color: white; 
-        border-radius: 35px; 
-        border: 5px solid white; 
-        padding: 5px;
+        border-radius: 20px; 
+        border: 3px solid white; 
+        padding: 0px;
     """)
     control_layout.addWidget(app.interactive_camera_mini)
 

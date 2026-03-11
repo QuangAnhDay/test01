@@ -1,19 +1,18 @@
 import os
 import random
-from PyQt5.QtWidgets import QWidget, QHBoxLayout
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout
+from PyQt5.QtCore import Qt, QTimer, QRectF
 from PyQt5.QtGui import QPixmap, QPainter, QPainterPath
 
 
 class _ScrollingColumn(QWidget):
-    """Một cột ảnh cuộn liên tục theo chiều dọc."""
+    """Một cột ảnh cuộn liên tục theo chiều dọc với chiều cao biến đổi (Masonry)."""
 
-    def __init__(self, photo_paths, col_width, photo_height, spacing=14,
-                 scroll_speed=1, border_radius=14, parent=None):
+    def __init__(self, photo_paths, col_width, spacing=-2,
+                 scroll_speed=1, border_radius=15, parent=None):
         super().__init__(parent)
         self.photo_paths = photo_paths
         self.col_width = col_width
-        self.photo_height = photo_height
         self.spacing = spacing
         self.scroll_speed = scroll_speed
         self.border_radius = border_radius
@@ -21,34 +20,42 @@ class _ScrollingColumn(QWidget):
 
         self.setFixedWidth(col_width)
 
-        # Cache pixmap đã load
+        # Cache ảnh
         self._pixmaps = []
+        self._heights = []
+        self._raw_pixmaps = []
+        
         self._load_pixmaps()
 
-        # Tính chiều cao 1 block (tất cả ảnh 1 lần)
-        self._block_height = len(self._pixmaps) * (self.photo_height + self.spacing)
-        if self._block_height <= 0:
-            self._block_height = 1
-
     def _load_pixmaps(self):
-        """Load và cache tất cả ảnh cho cột."""
+        """Load ảnh gốc vào cache."""
+        self._raw_pixmaps = []
         for path in self.photo_paths:
             if not path or not os.path.exists(path):
                 continue
-            pixmap = QPixmap(path)
-            if pixmap.isNull():
-                continue
+            pix = QPixmap(path)
+            if not pix.isNull():
+                self._raw_pixmaps.append(pix)
+        
+        self.update_column_width(self.col_width)
 
-            # Scale + crop fill
-            scaled = pixmap.scaled(
-                self.col_width, self.photo_height,
-                Qt.KeepAspectRatioByExpanding,
-                Qt.SmoothTransformation
-            )
-            x_off = (scaled.width() - self.col_width) // 2
-            y_off = (scaled.height() - self.photo_height) // 2
-            cropped = scaled.copy(x_off, y_off, self.col_width, self.photo_height)
-            self._pixmaps.append(cropped)
+    def update_column_width(self, new_width):
+        """Tính toán lại toàn bộ ảnh khi chiều rộng cột thay đổi (Masonry)."""
+        self.col_width = max(new_width, 10)
+        self.setFixedWidth(self.col_width)
+        self._pixmaps = []
+        self._heights = []
+        
+        for pix in self._raw_pixmaps:
+            scaled = pix.scaledToWidth(self.col_width, Qt.SmoothTransformation)
+            self._pixmaps.append(scaled)
+            self._heights.append(scaled.height())
+            
+        # Tính lại tổng chiều cao block
+        self._block_height = sum(h + self.spacing for h in self._heights)
+        if self._block_height <= 0:
+            self._block_height = 1
+        self.update()
 
     def advance_scroll(self):
         """Tiến offset scroll 1 bước."""
@@ -58,7 +65,7 @@ class _ScrollingColumn(QWidget):
         self.update()
 
     def paintEvent(self, event):
-        """Vẽ các ảnh với bo góc, cuộn vô tận."""
+        """Vẽ các ảnh với chiều cao biến đổi, nối tiếp nhau khít."""
         if not self._pixmaps:
             return
 
@@ -67,33 +74,30 @@ class _ScrollingColumn(QWidget):
         painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
 
         widget_h = self.height()
-        item_h = self.photo_height + self.spacing
-        n = len(self._pixmaps)
-
-        # Vẽ đủ ảnh để lấp đầy viewport (lặp 3 lần)
-        for repeat in range(-1, 3):
-            for i, pix in enumerate(self._pixmaps):
-                y = (repeat * self._block_height) + (i * item_h) - self.scroll_offset
-
-                # Chỉ vẽ nếu trong viewport
-                if y + self.photo_height < -20 or y > widget_h + 20:
-                    continue
-
-                painter.save()
-                path = QPainterPath()
-                path.addRoundedRect(
-                    0, y, self.col_width, self.photo_height,
-                    self.border_radius, self.border_radius
-                )
-                painter.setClipPath(path)
-                painter.drawPixmap(0, int(y), self.col_width, self.photo_height, pix)
-                painter.restore()
+        
+        # Vẽ đủ ảnh để lấp đầy viewport
+        for repeat in range(-1, 2):
+            current_y = (repeat * self._block_height) - self.scroll_offset
+            for pix, h in zip(self._pixmaps, self._heights):
+                # Chỉ vẽ nếu trong viewport (có buffer)
+                if current_y + h >= -100 and current_y <= widget_h + 100:
+                    painter.save()
+                    path = QPainterPath()
+                    path.addRoundedRect(
+                        0, current_y, float(self.col_width), float(h),
+                        float(self.border_radius), float(self.border_radius)
+                    )
+                    painter.setClipPath(path)
+                    painter.drawPixmap(0, int(current_y), pix)
+                    painter.restore()
+                
+                current_y += (h + self.spacing)
 
         painter.end()
 
 
 class InfiniteImageColumnWidget(QWidget):
-    """Widget hiển thị nhiều cột ảnh cuộn liên tục với tốc độ khác nhau."""
+    """Widget hiển thị nhiều cột ảnh cuộn liên tục với phong cách Masonry khít."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -106,9 +110,12 @@ class InfiniteImageColumnWidget(QWidget):
         self._load_photos()
 
         # Tạo layout cho các cột
+        self._spacing_h = 20 # Khoảng cách ngang (20px)
+        self._spacing_v = -2 # Ép khít hơn nữa (overlap 2px) để xóa bỏ vạch trắng li ti giữa các ảnh
+        
         self._main_layout = QHBoxLayout(self)
-        self._main_layout.setContentsMargins(14, 14, 14, 14)
-        self._main_layout.setSpacing(14)
+        self._main_layout.setContentsMargins(20, 20, 20, 20)
+        self._main_layout.setSpacing(20)
 
         self._build_columns()
 
@@ -124,6 +131,7 @@ class InfiniteImageColumnWidget(QWidget):
             os.path.join(os.path.dirname(__file__), '../../../public/sample_photos'),
             r"D:\photobooth2\sample_photos",
             r"D:\photobooth2\public\sample_photos",
+            r"D:\photobooth2\public\sample_photos\vertical", # Thêm thư mục chứa ảnh dọc
         ]
 
         for dir_path in search_dirs:
@@ -141,7 +149,7 @@ class InfiniteImageColumnWidget(QWidget):
         self.photo_paths = list(dict.fromkeys(self.photo_paths))
 
     def _build_columns(self):
-        """Tạo 3 cột ảnh với ảnh và tốc độ khác nhau."""
+        """Tạo 4 cột ảnh với ảnh và tốc độ khác nhau để trông 'khít' hơn."""
         # Xóa cột cũ nếu có
         for col in self.columns:
             col.deleteLater()
@@ -150,35 +158,28 @@ class InfiniteImageColumnWidget(QWidget):
         if not self.photo_paths:
             return
 
-        # Trộn ảnh và chia cho 3 cột
+        # Trộn ảnh và chia cho 3 cột (giảm số cột để ảnh to hơn)
         photos = list(self.photo_paths)
         random.shuffle(photos)
 
-        # Chia ảnh cho từng cột (nhân đôi để có đủ ảnh cuộn)
-        n = len(photos)
-        col_photos = [
-            (photos[0::3] * 3),  # Cột 1: lấy ảnh 0, 3, 6, ...
-            (photos[1::3] * 3),  # Cột 2: lấy ảnh 1, 4, 7, ...
-            (photos[2::3] * 3),  # Cột 3: lấy ảnh 2, 5, 8, ...
-        ]
+        # Chia ảnh cho từng cột
+        num_cols = 3
+        col_photos = []
+        for i in range(num_cols):
+            col_photos.append(photos[i::num_cols] * 3)
 
-        # Cấu hình mỗi cột: (chiều cao ảnh, tốc độ cuộn)
-        col_configs = [
-            (380, 1.2),   # Cột trái: ảnh cao, cuộn vừa
-            (300, -0.8),  # Cột giữa: ảnh vừa, cuộn ngược
-            (340, 1.0),   # Cột phải: ảnh trung bình, cuộn xuôi
-        ]
+        # Cấu hình tốc độ cuộn cho 3 cột
+        speeds = [1.2, -0.9, 1.0]
 
-        col_width = 250  # Sẽ được điều chỉnh trong resizeEvent
+        col_width = 250  # Sẽ được tính lại trong resizeEvent
 
-        for i, (photos_list, (ph, speed)) in enumerate(zip(col_photos, col_configs)):
+        for photos_list, speed in zip(col_photos, speeds):
             col = _ScrollingColumn(
                 photo_paths=photos_list,
                 col_width=col_width,
-                photo_height=ph,
-                spacing=14,
+                spacing=self._spacing_v, 
                 scroll_speed=speed,
-                border_radius=14,
+                border_radius=15, # Khôi phục bo góc cho đẹp khi có khoảng cách
                 parent=self,
             )
             self._main_layout.addWidget(col)
@@ -201,4 +202,4 @@ class InfiniteImageColumnWidget(QWidget):
         col_w = max(avail_w // len(self.columns), 100)
 
         for col in self.columns:
-            col.setFixedWidth(col_w)
+            col.update_column_width(col_w)
