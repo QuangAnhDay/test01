@@ -118,7 +118,7 @@ GLOBAL_STYLESHEET = """
     QScrollArea { border: none; background-color: transparent; }
     QWidget#PhotoCard {
         background-color: #16213e; border-radius: 10px;
-        border: 2px solid #E9E1E3;
+        border: 5px solid white;
     }
     QWidget#PhotoCard:hover { border-color: #e94560; }
     QWidget#GalleryPanel { background-color: #0f0f23; }

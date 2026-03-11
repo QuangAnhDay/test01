@@ -344,8 +344,8 @@ class FreePhotobooth(PhotoboothApp):
                         # Cập nhật Camera mini ở sidebar (Page 0)
                         if hasattr(self, 'interactive_camera_mini'):
                             # Trừ đi padding/border (khoảng 20px tổng cộng) để "khíp" vào lòng trắng
-                            mini_w = self.interactive_camera_mini.width() - 20
-                            mini_h = self.interactive_camera_mini.height() - 20
+                            mini_w = self.interactive_camera_mini.width() - 10
+                            mini_h = self.interactive_camera_mini.height() - 10
                             mini_scaled = qt_img_display.scaled(mini_w, mini_h,
                                                        Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
                             mini_rounded = get_rounded_pixmap(mini_scaled, radius=25) # Giảm radius xíu cho khớp lòng

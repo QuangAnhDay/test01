@@ -33,7 +33,7 @@ def create_finish_screen(app):
     preview_container = QFrame(screen)
     preview_container.setGeometry(460, 160, 1000, 700)
     preview_container.setStyleSheet("""
-        background-color: #FADBDC; border-radius: 40px; border: 8px solid white;
+        background-color: #FADBDC; border-radius: 40px; border: 5px solid white;
     """)
     
     preview_layout = QVBoxLayout(preview_container)

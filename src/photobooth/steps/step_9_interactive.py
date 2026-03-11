@@ -72,7 +72,7 @@ def create_interactive_capture_screen(app):
         background-color: white; 
         border-radius: 35px; 
         border: 5px solid white; 
-        padding: 5px;
+        padding: 0px;
     """)
     control_layout.addWidget(app.interactive_camera_mini)
 

@@ -32,7 +32,7 @@ def create_payment_screen(app):
     # --- [2] KHUNG CHỨA QR (Bên trái) ---
     qr_outer = QFrame(screen)
     qr_outer.setGeometry(200, 180, 700, 700)
-    qr_outer.setStyleSheet("background-color: #FADBDC; border-radius: 40px; border: 8px solid white;")
+    qr_outer.setStyleSheet("background-color: #FADBDC; border-radius: 40px; border: 5px solid white;")
     
     qr_layout = QVBoxLayout(qr_outer)
     qr_layout.setContentsMargins(40, 40, 40, 40)
@@ -59,7 +59,7 @@ def create_payment_screen(app):
     # --- [3] KHUNG THÔNG TIN GÓI (Bên phải) ---
     info_outer = QFrame(screen)
     info_outer.setGeometry(950, 180, 770, 700)
-    info_outer.setStyleSheet("background-color: #FADBDC; border-radius: 40px; border: 8px solid white;")
+    info_outer.setStyleSheet("background-color: #FADBDC; border-radius: 40px; border: 5px solid white;")
     
     info_layout = QVBoxLayout(info_outer)
     info_layout.setContentsMargins(50, 60, 50, 60)
