@@ -1,5 +1,27 @@
 Traceback (most recent call last):
-  File "d:\photobooth2\src\app_free.py", line 343, in on_frame_interactive
-    self.interactive_camera_label.setPixmap(QPixmap.fromImage(scaled_full))
-                                            ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
-TypeError: fromImage(image: QImage, flags: Union[Qt.ImageConversionFlags, Qt.ImageConversionFlag] = Qt.AutoColor): argument 1 has unexpected type 'QPixmap'
+  File "d:\photobooth2\src\app_free.py", line 536, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "d:\photobooth2\src\app_free.py", line 503, in main
+    window = FreePhotobooth()
+  File "d:\photobooth2\src\app_free.py", line 66, in __init__
+    super().__init__()
+    ~~~~~~~~~~~~~~~~^^
+  File "d:\photobooth2\src\app.py", line 245, in __init__
+    self.home_screen = HomeScreen(self)
+                       ~~~~~~~~~~^^^^^^
+  File "d:\photobooth2\src\ui\screens\home_screen.py", line 25, in __init__
+    self.setup_ui()
+    ~~~~~~~~~~~~~^^
+  File "d:\photobooth2\src\ui\screens\home_screen.py", line 48, in setup_ui
+    right_panel = self.create_right_panel()
+  File "d:\photobooth2\src\ui\screens\home_screen.py", line 87, in create_right_panel
+    self.camera_view = CameraView(initial_camera_index=0)
+                       ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "d:\photobooth2\src\ui\widgets\camera_view.py", line 236, in __init__
+    self._apply_mask()
+    ~~~~~~~~~~~~~~~~^^
+  File "d:\photobooth2\src\ui\widgets\camera_view.py", line 251, in _apply_mask
+    self.current_camera_index = initial_camera_index
+                                ^^^^^^^^^^^^^^^^^^^^
+NameError: name 'initial_camera_index' is not defined

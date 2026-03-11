@@ -289,12 +289,12 @@ class FreePhotobooth(PhotoboothApp):
         if hasattr(self, 'home_screen') and self.home_screen.camera_view:
             lbl = self.home_screen.camera_view.image_label
             if lbl and not lbl.size().isEmpty():
-                # Scale ảnh để lấp đầy label
+                # Scale ảnh để lấp đầy label (label hiện tại là 720x460 nằm trong khung trắng)
                 scaled = qt_img.scaled(lbl.size(), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
                 
-                # Chuyển sang pixmap và áp dụng bo góc (radius=24 giống thiết kế ban đầu)
+                # Chuyển sang pixmap và áp dụng bo góc (radius=19 cho khung đen lọt lòng)
                 pixmap = QPixmap.fromImage(scaled)
-                rounded_pixmap = get_rounded_pixmap(pixmap, radius=24)
+                rounded_pixmap = get_rounded_pixmap(pixmap, radius=19)
                 
                 lbl.setPixmap(rounded_pixmap)
                 lbl.setVisible(True)
@@ -344,11 +344,11 @@ class FreePhotobooth(PhotoboothApp):
                 
                 # Update Mini Sidebar (Page 0)
                 if hasattr(self, 'interactive_camera_mini'):
-                    mini_w = self.interactive_camera_mini.width() - 20
-                    mini_h = self.interactive_camera_mini.height() - 20
+                    mini_w = self.interactive_camera_mini.width() - 12
+                    mini_h = self.interactive_camera_mini.height() - 12
                     if mini_w > 0 and mini_h > 0:
                         mini_pixmap = qt_img_display.scaled(mini_w, mini_h, Qt.IgnoreAspectRatio, Qt.FastTransformation)
-                        mini_rounded = get_rounded_pixmap(mini_pixmap, radius=25)
+                        mini_rounded = get_rounded_pixmap(mini_pixmap, radius=35)
                         self.interactive_camera_mini.setPixmap(mini_rounded)
 
     def on_frame_received(self, qt_img):

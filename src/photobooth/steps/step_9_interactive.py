@@ -46,17 +46,69 @@ def create_interactive_capture_screen(app):
     list_container.setGeometry(40, 40, 1160, 1000) 
     list_container.setStyleSheet("background-color: #FADBDC; border-radius: 35px; border: 5px solid white;")
     
-    list_layout = QVBoxLayout(list_container)
-    list_layout.setContentsMargins(30, 30, 30, 30)
+    # Sử dụng QHBoxLayout để chứa cả Preview và cột Filters bên phải
+    list_h_layout = QHBoxLayout(list_container)
+    list_h_layout.setContentsMargins(40, 40, 40, 40)
+    list_h_layout.setSpacing(10)
 
+    # Vùng hiển thị ảnh collage
     app.interactive_template_label = QLabel()
     app.interactive_template_label.setAlignment(Qt.AlignCenter)
     app.interactive_template_label.setStyleSheet("background: transparent; border: none;")
-    list_layout.addWidget(app.interactive_template_label)
+    list_h_layout.addWidget(app.interactive_template_label, stretch=1)
+
+    # --- [4] BỘ LỌC (FILTERS) - DẠNG CỘT DỌC NẰM TRONG KHUNG TRÁI ---
+    filter_v_widget = QFrame()
+    filter_v_widget.setFixedWidth(120)
+    filter_v_widget.setStyleSheet("""
+        QFrame {
+            background-color: rgba(255, 255, 255, 40); 
+            border-radius: 20px; 
+            border: 5px solid white;
+        }
+    """)
+    filter_v_layout = QVBoxLayout(filter_v_widget)
+    filter_v_layout.setContentsMargins(10, 15, 10, 15)
+    filter_v_layout.setSpacing(15)
+    filter_v_layout.setAlignment(Qt.AlignTop)
+
+    # Danh sách các filter
+    filters = ["Original", "Grayscale", "Sepia", "Warm", "Cool"]
+    app.filter_buttons = {}
+
+    for i, f_name in enumerate(filters):
+        # Đổi chữ cái thành danh sách 1, 2, 3, 4, 5
+        btn = QPushButton(str(i + 1))
+        btn.setToolTip(f_name)
+        btn.setCheckable(True)
+        btn.setFixedSize(90, 90) 
+        btn.setStyleSheet("""
+            QPushButton {
+                background-color: white; color: #FF7E7E;
+                font-family: 'Cooper Black'; font-size: 32px;
+                border-radius: 20px; 
+                border: 4px solid white;
+            }
+            QPushButton:checked {
+                background-color: #FF7E7E; color: white;
+                border: 4px solid white;
+            }
+            QPushButton:hover { 
+                background-color: #FFF0F0; 
+            }
+        """)
+        if f_name == "Original":
+            btn.setChecked(True)
+        
+        btn.clicked.connect(lambda checked, name=f_name: app.change_filter(name))
+        filter_v_layout.addWidget(btn, 0, Qt.AlignHCenter) # Giữ căn giữa để không bị méo
+        app.filter_buttons[f_name] = btn
+    
+    list_h_layout.addWidget(filter_v_widget)
 
     # --- [2] KHUNG PHẢI (Camera Mini & Các nút điều khiển phụ) ---
-    # Tọa độ và kích thước khớp 100% với Preview Box của Step 6
     control_container = QFrame(app.page_main)
+    # Khôi phục tọa độ gốc 1240
     control_container.setGeometry(1240, 40, 640, 840) 
     control_container.setStyleSheet("background-color: #FADBDC; border-radius: 40px; border: 5px solid white;")
     
@@ -66,13 +118,13 @@ def create_interactive_capture_screen(app):
 
     # Label Camera Mini (Tỷ lệ 4:3, bo góc)
     app.interactive_camera_mini = QLabel()
-    app.interactive_camera_mini.setFixedSize(560, 420) 
+    app.interactive_camera_mini.setFixedSize(550, 420) 
     app.interactive_camera_mini.setAlignment(Qt.AlignCenter)
     app.interactive_camera_mini.setStyleSheet("""
         background-color: white; 
         border-radius: 35px; 
-        border: 5px solid white; 
-        padding: 5px;
+        border: 3px solid white; 
+        padding: 0px;
     """)
     control_layout.addWidget(app.interactive_camera_mini)
 
@@ -86,7 +138,7 @@ def create_interactive_capture_screen(app):
         QPushButton:disabled { background-color: #EEE; color: #BBB; }
     """
 
-    app.btn_capture_step = QPushButton("CHỤP ẢNH !")
+    app.btn_capture_step = QPushButton("BẤM ĐỂ CHỤP !")
     app.btn_capture_step.setStyleSheet(btn_style_white)
     app.btn_capture_step.clicked.connect(app.start_interactive_shot)
     control_layout.addWidget(app.btn_capture_step)
@@ -98,8 +150,9 @@ def create_interactive_capture_screen(app):
 
     control_layout.addStretch()
 
-    # --- [3] NÚT "LẤY ẢNH !" (Nằm ngoài khung, đồng bộ với nút Confirm của Step 6) ---
+    # --- [3] NÚT "LẤY ẢNH !" (Nằm ngoài khung, căn giữa so với khung phải) ---
     app.btn_finish_interactive = QPushButton("LẤY ẢNH !", app.page_main)
+    # Khôi phục tọa độ gốc 1335
     app.btn_finish_interactive.setGeometry(1335, 920, 450, 110)
     app.btn_finish_interactive.setStyleSheet("""
         QPushButton {
@@ -111,40 +164,6 @@ def create_interactive_capture_screen(app):
         QPushButton:disabled { background-color: #EEE; color: #BBB; }
     """)
     app.btn_finish_interactive.clicked.connect(app.accept_and_print)
-
-    # --- [4] BỘ LỌC (FILTERS) ---
-    # Tạo một container mới cho Filters nằm trong control_layout (Dưới Camera Mini)
-    filter_widget = QWidget()
-    filter_layout = QHBoxLayout(filter_widget)
-    filter_layout.setContentsMargins(0, 0, 0, 0)
-    filter_layout.setSpacing(10)
-
-    filters = ["Original", "Grayscale", "Sepia", "Warm", "Cool", "Vintage"]
-    app.filter_buttons = {}
-
-    for f_name in filters:
-        btn = QPushButton(f_name)
-        btn.setCheckable(True)
-        btn.setFixedSize(90, 45)
-        btn.setStyleSheet("""
-            QPushButton {
-                background-color: white; color: #FF7E7E;
-                font-family: 'Arial'; font-size: 14px; font-weight: bold;
-                border-radius: 10px; border: 2px solid white;
-            }
-            QPushButton:checked {
-                background-color: #FF7E7E; color: white;
-            }
-        """)
-        if f_name == "Original":
-            btn.setChecked(True)
-        
-        btn.clicked.connect(lambda checked, name=f_name: app.change_filter(name))
-        filter_layout.addWidget(btn)
-        app.filter_buttons[f_name] = btn
-
-    # Chèn filter_widget vào control_layout, ngay dưới camera mini
-    control_layout.insertWidget(1, filter_widget)
 
     app.interactive_stack.addWidget(app.page_main)
 
