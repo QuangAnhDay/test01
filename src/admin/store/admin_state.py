@@ -8,7 +8,8 @@ Quản lý config cho phiên admin.
 import os
 import json
 
-CONFIG_FILE = "config.json"
+from src.config import APP_CONFIG_PATH
+CONFIG_FILE = APP_CONFIG_PATH
 
 
 def load_admin_config():

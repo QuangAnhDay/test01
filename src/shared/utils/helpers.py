@@ -1,240 +1,33 @@
 # ==========================================
-# HÀM TIỆN ÍCH (UTILITY FUNCTIONS)
+# HÀM TIỆN ÍCH (BACKWARD-COMPATIBLE RE-EXPORT)
 # ==========================================
 """
-Các hàm hỗ trợ xử lý ảnh, hệ thống và các tiện ích khác.
+File này giữ lại để backward-compatible.
+Tất cả function đã được tách ra các module riêng trong src/utils/.
+Import từ đây vẫn hoạt động bình thường.
+
+Các module mới:
+  - src.utils.image_helpers  → get_rounded_pixmap, overlay_images, convert_cv_qt, crop_to_aspect
+  - src.utils.file_utils     → ensure_directories, load_sample_photos, create_sample_*
+  - src.utils.font_loader    → load_application_fonts
+  - src.utils.system_check   → check_printer_available
 """
 
-import os
-import cv2
-import numpy as np
-import subprocess
-from PyQt5.QtGui import QImage, QPixmap, QPainter, QPainterPath, QFontDatabase
-from PyQt5.QtCore import Qt
-from src.shared.types.models import TEMPLATE_DIR, OUTPUT_DIR, SAMPLE_PHOTOS_DIR
+# Re-export tất cả để code cũ không bị lỗi
+from src.utils.image_helpers import (
+    get_rounded_pixmap,
+    overlay_images,
+    convert_cv_qt,
+    crop_to_aspect,
+)
 
+from src.utils.file_utils import (
+    ensure_directories,
+    load_sample_photos,
+    create_sample_templates,
+    create_sample_photos,
+)
 
-def get_rounded_pixmap(input_data, radius=24):
-    """Tạo pixmap với các góc bo tròn (clipping)."""
-    if input_data.isNull():
-        return input_data
-        
-    # Chuyển đổi sang QPixmap nếu đầu vào là QImage để vẽ đồng nhất
-    if isinstance(input_data, QImage):
-        pixmap = QPixmap.fromImage(input_data)
-    else:
-        pixmap = input_data
+from src.utils.font_loader import load_application_fonts
 
-    size = pixmap.size()
-    # Tạo QImage mới với alpha channel (Sử dụng FORMAT_ARGB32_Premultiplied để có chất lượng tốt)
-    image = QImage(size.width(), size.height(), QImage.Format_ARGB32_Premultiplied)
-    image.fill(Qt.transparent)
-    
-    # Vẽ pixmap lên image với mask bo góc
-    painter = QPainter(image)
-    if not painter.isActive():
-        # Phải bảo đảm painter được khởi tạo thành công
-        if not painter.begin(image):
-            return QPixmap()
-
-    painter.setRenderHint(QPainter.Antialiasing, True)
-    painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
-    
-    # Tạo path bo góc
-    path = QPainterPath()
-    path.addRoundedRect(0, 0, float(size.width()), float(size.height()), float(radius), float(radius))
-    painter.setClipPath(path)
-    
-    # Vẽ pixmap vào image
-    painter.drawPixmap(0, 0, pixmap)
-    painter.end()
-    
-    return QPixmap.fromImage(image)
-
-
-# ==========================================
-# QUẢN LÝ THƯ MỤC
-# ==========================================
-
-def ensure_directories():
-    """Tạo các thư mục cần thiết."""
-    if not os.path.exists(TEMPLATE_DIR):
-        os.makedirs(TEMPLATE_DIR)
-        create_sample_templates()
-    if not os.path.exists(OUTPUT_DIR):
-        os.makedirs(OUTPUT_DIR)
-    if not os.path.exists(SAMPLE_PHOTOS_DIR):
-        os.makedirs(SAMPLE_PHOTOS_DIR)
-        create_sample_photos()
-    
-    # Nạp font
-    load_application_fonts()
-
-
-def load_application_fonts():
-    """Nạp tất cả font từ thư mục public/fonts."""
-    # Xác định đường dẫn project gốc (đi lên 4 cấp từ src/shared/utils/helpers.py)
-    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-    fonts_dir = os.path.join(base_dir, "public", "fonts")
-    
-    if os.path.exists(fonts_dir):
-        for f in os.listdir(fonts_dir):
-            if f.lower().endswith(('.ttf', '.otf')):
-                font_path = os.path.join(fonts_dir, f)
-                font_id = QFontDatabase.addApplicationFont(font_path)
-                if font_id != -1:
-                    families = QFontDatabase.applicationFontFamilies(font_id)
-                    print(f"[FONT] Loaded: {f} (Family: {families})")
-                else:
-                    print(f"[FONT ERROR] Failed to load: {f}")
-    else:
-        print(f"[FONT] Fonts directory not found: {fonts_dir}")
-
-
-# ==========================================
-# TẠO DỮ LIỆU MẪU
-# ==========================================
-
-def create_sample_templates():
-    """Tạo các template mẫu."""
-    width, height = 1280, 720
-
-    test_dir = os.path.join(TEMPLATE_DIR, "vertical")
-    os.makedirs(test_dir, exist_ok=True)
-
-    # Template 1: Khung đỏ đơn giản
-    img = np.zeros((height, width, 4), dtype=np.uint8)
-    cv2.rectangle(img, (0, 0), (width, height), (0, 0, 255, 255), 40)
-    cv2.putText(img, "PHOTOBOOTH", (width // 2 - 200, 60), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255, 255), 4)
-    img[80:height - 40, 40:width - 40] = [0, 0, 0, 0]
-    cv2.imwrite(os.path.join(test_dir, "frame_red_test.png"), img)
-
-    # Template 2: Khung xanh
-    img2 = np.zeros((height, width, 4), dtype=np.uint8)
-    cv2.rectangle(img2, (0, 0), (width, height), (255, 100, 0, 255), 40)
-    cv2.putText(img2, "MEMORIES", (width // 2 - 150, 60), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255, 255), 4)
-    img2[80:height - 40, 40:width - 40] = [0, 0, 0, 0]
-    cv2.imwrite(os.path.join(test_dir, "frame_blue_test.png"), img2)
-
-
-def create_sample_photos():
-    """Tạo các ảnh mẫu demo."""
-    colors = [
-        ((255, 100, 150), "Memory 1"),
-        ((100, 200, 255), "Memory 2"),
-        ((150, 255, 150), "Memory 3"),
-        ((255, 200, 100), "Memory 4"),
-        ((200, 150, 255), "Memory 5"),
-        ((100, 255, 200), "Memory 6"),
-        ((255, 150, 200), "Memory 7"),
-        ((150, 200, 255), "Memory 8"),
-    ]
-
-    for i, (color, text) in enumerate(colors):
-        img = np.zeros((400, 300, 3), dtype=np.uint8)
-        for y in range(400):
-            ratio = y / 400
-            img[y, :] = (
-                int(color[0] * (1 - ratio * 0.5)),
-                int(color[1] * (1 - ratio * 0.5)),
-                int(color[2] * (1 - ratio * 0.5))
-            )
-        cv2.putText(img, text, (50, 200), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-        cv2.putText(img, "Sample", (80, 250), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
-        cv2.imwrite(os.path.join(SAMPLE_PHOTOS_DIR, f"sample_{i + 1}.jpg"), img)
-
-
-def load_sample_photos():
-    """Load các ảnh mẫu từ thư mục."""
-    photos = []
-    if os.path.exists(SAMPLE_PHOTOS_DIR):
-        for f in sorted(os.listdir(SAMPLE_PHOTOS_DIR)):
-            if f.lower().endswith(('.jpg', '.jpeg', '.png')):
-                photos.append(os.path.join(SAMPLE_PHOTOS_DIR, f))
-    if os.path.exists(OUTPUT_DIR):
-        for f in sorted(os.listdir(OUTPUT_DIR)):
-            if f.lower().endswith(('.jpg', '.jpeg', '.png')):
-                photos.append(os.path.join(OUTPUT_DIR, f))
-    return photos
-
-
-# ==========================================
-# XỬ LÝ ẢNH
-# ==========================================
-
-def overlay_images(background, foreground):
-    """Ghép ảnh foreground (có alpha) lên background."""
-    bg_h, bg_w = background.shape[:2]
-    fg_h, fg_w = foreground.shape[:2]
-
-    if (bg_w, bg_h) != (fg_w, fg_h):
-        print(f"[WARNING] overlay_images: kích thước khác nhau! Background={bg_w}x{bg_h}, Template={fg_w}x{fg_h} → resize template")
-        foreground = cv2.resize(foreground, (bg_w, bg_h))
-
-    if foreground.shape[2] < 4:
-        return background
-
-    alpha = foreground[:, :, 3] / 255.0
-    output = np.zeros_like(background)
-
-    for c in range(0, 3):
-        output[:, :, c] = (foreground[:, :, c] * alpha +
-                           background[:, :, c] * (1.0 - alpha))
-
-    return output
-
-
-def convert_cv_qt(cv_img):
-    """Chuyển đổi ảnh OpenCV sang QPixmap."""
-    if cv_img is None:
-        return QPixmap()
-    rgb_image = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
-    h, w, ch = rgb_image.shape
-    bytes_per_line = ch * w
-    qt_format = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
-    return QPixmap.fromImage(qt_format)
-
-
-def crop_to_aspect(img, target_ratio=1.5):
-    """
-    Cắt ảnh theo tỷ lệ khung hình mong muốn (3:2 = 1.5).
-    """
-    h, w = img.shape[:2]
-    current_ratio = w / h
-
-    if abs(current_ratio - target_ratio) < 0.01:
-        return img
-
-    if current_ratio > target_ratio:
-        new_w = int(h * target_ratio)
-        start_x = (w - new_w) // 2
-        return img[:, start_x:start_x + new_w]
-    else:
-        new_h = int(w / target_ratio)
-        start_y = (h - new_h) // 2
-        return img[start_y:start_y + new_h, :]
-
-
-# ==========================================
-# KIỂM TRA HỆ THỐNG
-# ==========================================
-
-def check_printer_available():
-    """Kiểm tra xem có máy in nào được kết nối không (Windows)."""
-    if os.name != 'nt':
-        return False, "Chỉ hỗ trợ Windows"
-
-    try:
-        result = subprocess.run(
-            ['powershell', '-Command', 'Get-Printer | Select-Object -ExpandProperty Name'],
-            capture_output=True, text=True, timeout=5
-        )
-        printers = result.stdout.strip().split('\n')
-        printers = [p.strip() for p in printers if p.strip()]
-
-        if printers:
-            return True, printers[0]
-        else:
-            return False, "Không tìm thấy máy in"
-    except Exception as e:
-        return False, str(e)
+from src.utils.system_check import check_printer_available

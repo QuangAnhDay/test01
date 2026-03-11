@@ -24,7 +24,8 @@ from src.shared.types.models import get_all_layouts, load_config, TEMPLATE_DIR
 import shutil
 from PyQt5.QtWidgets import QFileDialog
 
-CONFIG_FILE = "config.json"
+from src.config import APP_CONFIG_PATH
+CONFIG_FILE = APP_CONFIG_PATH
 
 # Danh sách ngân hàng phổ biến tại Việt Nam
 VIETNAM_BANKS = [

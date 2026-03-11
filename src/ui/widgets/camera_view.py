@@ -12,7 +12,8 @@ logger = logging.getLogger(__name__)
 
 def _load_camera_settings():
     """Đọc cấu hình camera từ camera_settings.json."""
-    for path in ["camera_settings.json", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "camera_settings.json")]:
+    from src.config import CAMERA_SETTINGS_PATH
+    for path in [CAMERA_SETTINGS_PATH, "camera_settings.json"]:
         if os.path.exists(path):
             try:
                 with open(path, 'r') as f:

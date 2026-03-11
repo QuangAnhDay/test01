@@ -9,12 +9,14 @@ các hàm quản lý config, và các hằng số.
 import os
 import json
 import random
+
+from src.config import APP_CONFIG_PATH, CUSTOM_LAYOUTS_PATH
 import string
 
 # ==========================================
 # CẤU HÌNH CƠ BẢN
 # ==========================================
-CONFIG_FILE = "config.json"
+CONFIG_FILE = APP_CONFIG_PATH
 WINDOW_TITLE = "Photobooth Cảm Ứng"
 WINDOW_WIDTH = 1920
 WINDOW_HEIGHT = 1080
@@ -143,7 +145,7 @@ LAYOUT_4x1 = {
 # ==========================================
 # CUSTOM LAYOUTS (Đọc từ file JSON)
 # ==========================================
-CUSTOM_LAYOUTS_FILE = "custom_layouts.json"
+CUSTOM_LAYOUTS_FILE = CUSTOM_LAYOUTS_PATH
 CUSTOM_LAYOUTS = {}
 
 def load_custom_layouts(force_reload=False):

@@ -12,7 +12,8 @@ import cv2
 import datetime
 from PyQt5.QtCore import QTimer
 
-CAMERA_SETTINGS_FILE = "camera_settings.json"
+from src.config import CAMERA_SETTINGS_PATH
+CAMERA_SETTINGS_FILE = CAMERA_SETTINGS_PATH
 
 
 class CameraManager:

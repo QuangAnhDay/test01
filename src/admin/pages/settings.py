@@ -20,7 +20,8 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QImage, QPixmap
 
-CAMERA_SETTINGS_FILE = "camera_settings.json"
+from src.config import CAMERA_SETTINGS_PATH
+CAMERA_SETTINGS_FILE = CAMERA_SETTINGS_PATH
 
 
 def load_camera_config():

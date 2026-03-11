@@ -117,8 +117,9 @@ class AdminPanel(QWidget):
 
     def load_camera_settings(self):
         try:
-            if os.path.exists("camera_settings.json"):
-                with open("camera_settings.json", "r") as f:
+            from src.config import CAMERA_SETTINGS_PATH
+            if os.path.exists(CAMERA_SETTINGS_PATH):
+                with open(CAMERA_SETTINGS_PATH, "r") as f:
                     cfg = json.load(f)
                     self.edit_cam_idx.setText(str(cfg.get("camera_index", 0)))
                     self.spin_w.setValue(cfg.get("width", 1280))
@@ -142,7 +143,8 @@ class AdminPanel(QWidget):
             "use_compat": self.check_compat.isChecked()
         }
         
-        with open("camera_settings.json", "w") as f:
+        from src.config import CAMERA_SETTINGS_PATH
+        with open(CAMERA_SETTINGS_PATH, "w") as f:
             json.dump(cfg, f, indent=4)
             
         # Gọi app.py để cập nhật nóng luồng camera

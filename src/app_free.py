@@ -113,7 +113,8 @@ class FreePhotobooth(PhotoboothApp):
 
     def _load_camera_config_file(self):
         """Đọc file camera_settings.json."""
-        config_path = "camera_settings.json"
+        from src.config import CAMERA_SETTINGS_PATH
+        config_path = CAMERA_SETTINGS_PATH
         if os.path.exists(config_path):
             try:
                 import json

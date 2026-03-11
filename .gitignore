@@ -1,4 +1,4 @@
-﻿# Python
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
@@ -10,9 +10,7 @@ venv/
 
 # FILE CẤU HÌNH (Chứa mật khẩu - KHÔNG UPLOAD)
 config.json
-
-# Output files (user-generated photos)
-output/
+config/app_config.json
 
 # IDE
 .vscode/
@@ -24,6 +22,20 @@ output/
 Thumbs.db
 
 # Output and temporary files
+output/
 *.jpg
 *.png
 custom_layouts.json
+config/custom_layouts.json
+
+# Logs & Debug artifacts
+logs/
+*.log
+crash_log.txt
+crash_final.log
+error_log.txt
+debug_frame.jpg
+stderr.txt
+out.log
+full_log*.txt
+test_out.txt
