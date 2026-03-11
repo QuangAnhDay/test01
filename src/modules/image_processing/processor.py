@@ -127,7 +127,7 @@ def create_collage(images, layout_type):
         elif layout_type == "4x1":
             CANVAS_W, CANVAS_H = 640, 1600
         else:
-            CANVAS_W, CANVAS_H = 1280, 720
+            CANVAS_W, CANVAS_H = 1210, 1810
 
     if count == 0:
         return np.zeros((CANVAS_H, CANVAS_W, 3), dtype=np.uint8)

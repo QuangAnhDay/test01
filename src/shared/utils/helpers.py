@@ -9,8 +9,47 @@ import os
 import cv2
 import numpy as np
 import subprocess
-from PyQt5.QtGui import QImage, QPixmap
+from PyQt5.QtGui import QImage, QPixmap, QPainter, QPainterPath, QFontDatabase
+from PyQt5.QtCore import Qt
 from src.shared.types.models import TEMPLATE_DIR, OUTPUT_DIR, SAMPLE_PHOTOS_DIR
+
+
+def get_rounded_pixmap(input_data, radius=24):
+    """Tạo pixmap với các góc bo tròn (clipping)."""
+    if input_data.isNull():
+        return input_data
+        
+    # Chuyển đổi sang QPixmap nếu đầu vào là QImage để vẽ đồng nhất
+    if isinstance(input_data, QImage):
+        pixmap = QPixmap.fromImage(input_data)
+    else:
+        pixmap = input_data
+
+    size = pixmap.size()
+    # Tạo QImage mới với alpha channel (Sử dụng FORMAT_ARGB32_Premultiplied để có chất lượng tốt)
+    image = QImage(size.width(), size.height(), QImage.Format_ARGB32_Premultiplied)
+    image.fill(Qt.transparent)
+    
+    # Vẽ pixmap lên image với mask bo góc
+    painter = QPainter(image)
+    if not painter.isActive():
+        # Phải bảo đảm painter được khởi tạo thành công
+        if not painter.begin(image):
+            return QPixmap()
+
+    painter.setRenderHint(QPainter.Antialiasing, True)
+    painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
+    
+    # Tạo path bo góc
+    path = QPainterPath()
+    path.addRoundedRect(0, 0, float(size.width()), float(size.height()), float(radius), float(radius))
+    painter.setClipPath(path)
+    
+    # Vẽ pixmap vào image
+    painter.drawPixmap(0, 0, pixmap)
+    painter.end()
+    
+    return QPixmap.fromImage(image)
 
 
 # ==========================================
@@ -27,6 +66,29 @@ def ensure_directories():
     if not os.path.exists(SAMPLE_PHOTOS_DIR):
         os.makedirs(SAMPLE_PHOTOS_DIR)
         create_sample_photos()
+    
+    # Nạp font
+    load_application_fonts()
+
+
+def load_application_fonts():
+    """Nạp tất cả font từ thư mục public/fonts."""
+    # Xác định đường dẫn project gốc (đi lên 4 cấp từ src/shared/utils/helpers.py)
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+    fonts_dir = os.path.join(base_dir, "public", "fonts")
+    
+    if os.path.exists(fonts_dir):
+        for f in os.listdir(fonts_dir):
+            if f.lower().endswith(('.ttf', '.otf')):
+                font_path = os.path.join(fonts_dir, f)
+                font_id = QFontDatabase.addApplicationFont(font_path)
+                if font_id != -1:
+                    families = QFontDatabase.applicationFontFamilies(font_id)
+                    print(f"[FONT] Loaded: {f} (Family: {families})")
+                else:
+                    print(f"[FONT ERROR] Failed to load: {f}")
+    else:
+        print(f"[FONT] Fonts directory not found: {fonts_dir}")
 
 
 # ==========================================

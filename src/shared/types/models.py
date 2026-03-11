@@ -64,25 +64,39 @@ def load_config():
 
 
 def get_price_2():
-    """Lấy giá gói 2 ảnh từ config."""
-    return APP_CONFIG.get('price_2_photos', 20000)
+    """Lấy giá gói 2 ảnh từ config (Dùng fallback sang giá custom)."""
+    return APP_CONFIG.get('price_2_photos', APP_CONFIG.get('price_custom', 20000))
 
 
 def get_price_4():
-    """Lấy giá gói 4 ảnh từ config."""
-    return APP_CONFIG.get('price_4_photos', 35000)
+    """Lấy giá gói 4 ảnh từ config (Dùng fallback sang giá dọc)."""
+    return APP_CONFIG.get('price_4_photos', APP_CONFIG.get('price_vertical', 35000))
+
+
+def get_price_vertical():
+    """Lấy giá cho nhóm layout dọc."""
+    return APP_CONFIG.get('price_vertical', 35000)
+
+
+def get_price_custom():
+    """Lấy giá cho nhóm layout custom."""
+    return APP_CONFIG.get('price_custom', 25000)
 
 
 def get_price_by_layout(layout_name):
-    """Lấy giá cho một layout cụ thể từ config hoặc dùng giá mặc định."""
+    """Lấy giá cho một layout cụ thể từ config theo nhóm (vertical/custom)."""
     prices = APP_CONFIG.get('layout_prices', {})
     if layout_name in prices:
         return prices[layout_name]
 
-    # Fallback to default group prices
-    if layout_name in ["1x2", "2x1"]:
-        return get_price_2()
-    return get_price_4()
+    # Xác định nhóm của layout
+    cfg = get_layout_config(layout_name)
+    group = cfg.get("group", "vertical" if layout_name == "4x1" else "custom")
+    
+    if group == "vertical":
+        return get_price_vertical()
+    else:
+        return get_price_custom()
 
 
 def get_all_prices():

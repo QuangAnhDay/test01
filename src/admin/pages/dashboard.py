@@ -57,24 +57,25 @@ class AdminSetup(QMainWindow):
         self.setWindowTitle("🛠️ Photobooth - Hệ thống Quản trị")
         self.resize(700, 900)
         self.setStyleSheet("""
-            QMainWindow { background-color: #1a1a2e; }
-            QLabel { color: #a8dadc; font-size: 14px; font-weight: bold; }
-            QLineEdit, QComboBox { 
-                background-color: #16213e; 
-                color: white; 
-                border: 1px solid #4361ee; 
+            QMainWindow { background-color: #f0f2f5; }
+            QLabel { color: #333; font-size: 14px; font-weight: bold; }
+            QLineEdit, QComboBox, QListWidget { 
+                background-color: white; 
+                color: #333; 
+                border: 1px solid #ccc; 
                 border-radius: 5px; 
                 padding: 8px;
                 font-size: 14px;
             }
-            QLineEdit:focus, QComboBox:focus { border-color: #06d6a0; }
+            QLineEdit:focus, QComboBox:focus { border-color: #4361ee; }
             QGroupBox { 
-                color: #06d6a0; 
+                color: #2c3e50; 
                 font-weight: bold; 
-                border: 2px solid #4361ee; 
+                border: 1px solid #ccc; 
                 border-radius: 10px; 
                 margin-top: 20px;
                 padding-top: 15px;
+                background-color: white;
             }
             QPushButton {
                 background-color: #4361ee;
@@ -86,13 +87,12 @@ class AdminSetup(QMainWindow):
                 font-weight: bold;
             }
             QPushButton:hover { background-color: #4cc9f0; }
-            QPushButton#SaveBtn { background-color: #06d6a0; color: #1a1a2e; font-size: 18px; }
-            QPushButton#SaveBtn:hover { background-color: #00f5d4; }
+            QPushButton#SaveBtn { background-color: #28a745; color: white; font-size: 18px; }
+            QPushButton#SaveBtn:hover { background-color: #218838; }
             QPushButton#EditorBtn { background-color: #f39c12; }
             QPushButton#EditorBtn:hover { background-color: #e67e22; }
         """)
 
-        self.layout_price_inputs = {}
         self.editor_window = None
 
         self.init_ui()
@@ -114,35 +114,17 @@ class AdminSetup(QMainWindow):
 
         title = QLabel("CẤU HÌNH HỆ THỐNG PHOTOBOOTH")
         title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet("font-size: 22px; color: #eaf0f6; margin-bottom: 10px;")
+        title.setStyleSheet("font-size: 22px; color: #333; margin-bottom: 10px;")
         layout.addWidget(title)
 
-        # --- Quản lý danh sách Layout & Giá tiền ---
-        layout_management_group = QGroupBox("QUẢN LÝ GIÁ TIỀN & LAYOUT")
-        layout_mgmt_vbox = QVBoxLayout(layout_management_group)
+        # --- Quản lý Giá tiền ---
+        pricing_group = QGroupBox("CẤU HÌNH GIÁ TIỀN")
+        pricing_layout = QVBoxLayout(pricing_group)
         
-        lbl_layout_info = QLabel("Sau khi tạo Layout mới ở App (F2), nhấn nút dưới đây để cập nhật danh sách và cấu hình giá:")
-        lbl_layout_info.setWordWrap(True)
-        lbl_layout_info.setStyleSheet("color: #a8dadc; font-weight: normal; margin-bottom: 5px;")
-        layout_mgmt_vbox.addWidget(lbl_layout_info)
-
-        self.btn_refresh_layouts = QPushButton("🔄 CẬP NHẬT DANH SÁCH LAYOUT & GIÁ")
-        self.btn_refresh_layouts.setStyleSheet("background-color: #4361ee; padding: 15px; font-size: 15px;")
-        self.btn_refresh_layouts.clicked.connect(self.refresh_layout_list)
-        layout_mgmt_vbox.addWidget(self.btn_refresh_layouts)
-
-        # Container để hiển thị các input giá tiền (sẽ được cập nhật khi nhấn refresh)
-        self.price_scroll = QScrollArea()
-        self.price_scroll.setWidgetResizable(True)
-        self.price_scroll.setFixedHeight(250)
-        self.price_scroll.setStyleSheet("background-color: #0f172a; border-radius: 5px;")
+        self.price_vertical = self.create_input(pricing_layout, "Giá kiểu Dọc (4x1):", "Nhập giá tiền VNĐ")
+        self.price_custom = self.create_input(pricing_layout, "Giá kiểu Custom:", "Nhập giá tiền VNĐ")
         
-        self.price_widget = QWidget()
-        self.price_container_layout = QVBoxLayout(self.price_widget)
-        self.price_scroll.setWidget(self.price_widget)
-        layout_mgmt_vbox.addWidget(self.price_scroll)
-
-        layout.addWidget(layout_management_group)
+        layout.addWidget(pricing_group)
 
         # --- Quản lý Template (Hình ảnh) ---
         template_group = QGroupBox("QUẢN LÝ TEMPLATE (HÌNH ẢNH)")
@@ -158,7 +140,7 @@ class AdminSetup(QMainWindow):
         from PyQt5.QtWidgets import QListWidget
         self.template_list = QListWidget()
         self.template_list.setFixedHeight(200)
-        self.template_list.setStyleSheet("background-color: #0f172a; color: white; border: 1px solid #4361ee;")
+        self.template_list.setStyleSheet("")
         template_layout.addWidget(self.template_list)
 
         h_btns = QHBoxLayout()
@@ -227,49 +209,9 @@ class AdminSetup(QMainWindow):
         return edit
 
     def refresh_layout_list(self):
-        """Cập nhật lại danh sách layout sau khi thêm mới, hỗ trợ Xóa."""
+        """Cập nhật lại danh sách nhóm template."""
         from src.shared.types import models as frame_config
         importlib.reload(frame_config)
-
-        # Xóa sạch các widget cũ trong price_container_layout
-        while self.price_container_layout.count():
-            item = self.price_container_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-            elif item.layout():
-                self.clear_layout(item.layout())
-
-        self.layout_price_inputs = {}
-        all_layouts = frame_config.get_all_layouts()
-        
-        for name, cfg in all_layouts.items():
-            h_layout = QHBoxLayout()
-            
-            # Label tên và nhóm
-            group_tag = f"[{cfg.get('group', 'Default').upper()}]"
-            lbl_name = QLabel(f"{group_tag} {name}:")
-            lbl_name.setFixedWidth(200)
-            lbl_name.setStyleSheet("color: #06d6a0;")
-            
-            # Input giá
-            edit_price = QLineEdit()
-            edit_price.setPlaceholderText("Giá VNĐ")
-            edit_price.setFixedWidth(120)
-            self.layout_price_inputs[name] = edit_price
-            
-            h_layout.addWidget(lbl_name)
-            h_layout.addWidget(edit_price)
-            h_layout.addStretch()
-
-            # Nút Xóa (chỉ cho layout custom và trừ cái Custom_Layout mặc định nếu muốn)
-            if name.startswith("Custom_") or name not in ["1x2", "2x1", "2x2", "4x1"]:
-                btn_del = QPushButton("🗑️")
-                btn_del.setFixedSize(40, 40)
-                btn_del.setStyleSheet("background-color: #e94560; border-radius: 5px;")
-                btn_del.clicked.connect(lambda checked, n=name: self.handle_delete_layout(n))
-                h_layout.addWidget(btn_del)
-
-            self.price_container_layout.addLayout(h_layout)
 
         self.temp_layout_combo.blockSignals(True)
         self.temp_layout_combo.clear()
@@ -399,15 +341,8 @@ class AdminSetup(QMainWindow):
             with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
                 data = json.load(f)
 
-            layout_prices = data.get("layout_prices", {})
-            for name, input_field in self.layout_price_inputs.items():
-                if name in layout_prices:
-                    input_field.setText(str(layout_prices[name]))
-                else:
-                    if name in ["1x2", "2x1"]:
-                        input_field.setText(str(data.get("price_2_photos", "")))
-                    else:
-                        input_field.setText(str(data.get("price_4_photos", "")))
+            self.price_vertical.setText(str(data.get("price_vertical", data.get("price_4_photos", ""))))
+            self.price_custom.setText(str(data.get("price_custom", data.get("price_2_photos", ""))))
 
             saved_bin = data.get("bank_bin", "")
             index = self.bank_combo.findData(saved_bin)
@@ -427,23 +362,19 @@ class AdminSetup(QMainWindow):
             print(f"Lỗi load config: {e}")
 
     def save_config(self):
-        layout_prices = {}
         try:
-            for name, input_field in self.layout_price_inputs.items():
-                val = input_field.text().strip()
-                if val:
-                    layout_prices[name] = int(val)
+            pv = int(self.price_vertical.text().strip() or 0)
+            pc = int(self.price_custom.text().strip() or 0)
         except ValueError:
-            QMessageBox.critical(self, "Lỗi", "Giá tiền các layout phải là số nguyên!")
+            QMessageBox.critical(self, "Lỗi", "Giá tiền phải là số nguyên!")
             return
 
-        p2 = layout_prices.get("2x1", layout_prices.get("1x2", 20000))
-        p4 = layout_prices.get("2x2", layout_prices.get("4x1", 35000))
-
         config_data = {
-            "price_2_photos": p2,
-            "price_4_photos": p4,
-            "layout_prices": layout_prices,
+            "price_vertical": pv,
+            "price_custom": pc,
+            "price_2_photos": pc, # Giữ cho tương thích code cũ
+            "price_4_photos": pv, # Giữ cho tương thích code cũ
+            "layout_prices": {}, # Clear layout_prices để App dùng fallback
             "bank_bin": self.bank_combo.currentData(),
             "bank_account": self.bank_acc.text(),
             "account_name": self.bank_name.text(),

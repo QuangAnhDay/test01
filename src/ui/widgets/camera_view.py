@@ -32,7 +32,12 @@ class CameraWorkerThread(QThread):
         self.is_running = False
         self.camera_index = 0
         self.cap = None
-        self.external_cap = False  # Cờ đánh dấu dùng cap từ bên ngoài
+        
+        # Tự động phát hiện chế độ FREE để tránh tranh chấp Camera
+        from PyQt5.QtWidgets import QApplication
+        app = QApplication.instance()
+        self.external_cap = getattr(app, 'is_free_mode', False)
+        
         self.mutex = QMutex()
         self._pending_index = None
         self._consecutive_failures = 0  # Counter for failed reads
@@ -220,8 +225,7 @@ class CameraView(QFrame):
         self.image_label.setFixedSize(730, 470)
         layout.addWidget(self.image_label)
 
-        # Tạo mask bo góc cho label
-        self._create_rounded_mask()
+        self._create_rounded_mask() 
 
         # Camera worker thread
         self.camera_worker = CameraWorkerThread()
@@ -246,6 +250,11 @@ class CameraView(QFrame):
             return
 
         logger.info(f"Bắt đầu camera index {self.current_camera_index}")
+        if self.camera_worker.external_cap:
+            logger.info("Camera đang ở chế độ External Capture, không chạy worker thread riêng.")
+            self._is_running = True
+            return
+
         self.camera_worker.is_running = True
         if not self.camera_worker.external_cap:
             self.camera_worker.set_camera_index(self.current_camera_index)

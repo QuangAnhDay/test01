@@ -61,7 +61,7 @@ def create_template_screen(app):
     title_box.setGeometry(435, 40, 450, 85) 
     title_box.setStyleSheet("""
         background-color: #FADBDC; color: white;
-        font-family: 'Arial'; font-size: 28px; font-style: italic; font-weight: bold;
+        font-family: 'Cooper Black', 'Arial'; font-size: 28px; font-style: italic; font-weight: bold;
         border-radius: 25px;
     """)
     
@@ -92,7 +92,7 @@ def create_template_screen(app):
         btn.setStyleSheet("""
             QPushButton {
                 background-color: white; color: black;
-                font-family: 'Arial'; font-size: 26px; font-style: italic; font-weight: bold;
+                font-family: 'Cooper Black', 'Arial'; font-size: 26px; font-style: italic; font-weight: bold;
                 border-radius: 15px; border: none;
             }
             QPushButton:checked { background-color: #F2BFC1; color: white; }
@@ -157,7 +157,7 @@ def create_template_screen(app):
     app.btn_confirm_template.setStyleSheet("""
         QPushButton {
             background-color: #FADBDC; color: white;
-            font-family: 'Arial'; font-size: 38px; font-style: italic; font-weight: bold;
+            font-family: 'Cooper Black', 'Arial'; font-size: 38px; font-style: italic; font-weight: bold;
             border-radius: 25px;
         }
         QPushButton:hover { background-color: #F8B9BC; }

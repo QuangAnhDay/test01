@@ -132,7 +132,7 @@ def create_custom_editor_screen(app):
     top_bar = QHBoxLayout()
     title = QLabel("🛠️ ADMIN: THIẾT KẾ BỐ CỤC (LAYOUT) MỚI")
     title.setObjectName("TitleLabel")
-    title.setStyleSheet("font-size: 28px; color: #ffd700;")
+    title.setStyleSheet("font-family: 'Cooper Black'; font-size: 28px; color: #ffd700;")
     top_bar.addWidget(title)
     top_bar.addStretch()
     
@@ -452,7 +452,7 @@ class CustomEditorLogic:
         self.canvas_h = h
         # Đặt lại slot mặc định phù hợp với canvas mới, giữ tỉ lệ
         ratio = self.get_aspect_ratio()
-        default_slot_w = min(400, w - 40)
+        default_slot_w = min(350, w - 40)
         default_slot_h = int(default_slot_w * ratio[1] / ratio[0])
         self.temp_slots = [(20, 20, default_slot_w, default_slot_h)]
         

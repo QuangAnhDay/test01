@@ -25,7 +25,7 @@ def create_payment_screen(app):
     title_box.setGeometry(685, 40, 550, 85) 
     title_box.setStyleSheet("""
         background-color: #FADBDC; color: white;
-        font-family: 'Arial'; font-size: 32px; font-style: italic; font-weight: bold;
+        font-family: 'Cooper Black', 'Arial'; font-size: 32px; font-style: italic; font-weight: bold;
         border-radius: 25px; border: 5px solid white;
     """)
 
@@ -91,7 +91,7 @@ def create_payment_screen(app):
     app.btn_back_qr.setStyleSheet("""
         QPushButton {
             background-color: white; color: #FF7E7E;
-            font-family: 'Arial'; font-size: 28px; font-style: italic; font-weight: bold;
+            font-family: 'Cooper Black', 'Arial'; font-size: 28px; font-style: italic; font-weight: bold;
             border-radius: 25px; border: 5px solid #FADBDC;
         }
         QPushButton:hover { background-color: #FFF0F0; }

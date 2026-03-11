@@ -40,7 +40,7 @@ def create_package_screen(app):
             font-weight: bold;
             padding: 20px 40px;
             min-width: 400px;
-            font-family: 'Segoe UI', Arial, sans-serif;
+            font-family: 'Cooper Black', 'Segoe UI', Arial, sans-serif;
         }
         QPushButton:hover {
             background-color: #FF6B6B;

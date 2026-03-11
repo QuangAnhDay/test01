@@ -25,7 +25,7 @@ def create_photo_select_screen(app):
     # Timer Label
     app.lbl_selection_timer = QLabel("Thời gian còn lại: 00:00")
     app.lbl_selection_timer.setAlignment(Qt.AlignCenter)
-    app.lbl_selection_timer.setStyleSheet("font-size: 24px; color: #ffd700; font-weight: bold;")
+    app.lbl_selection_timer.setStyleSheet("font-family: 'Cooper Black'; font-size: 24px; color: #ffd700; font-weight: bold;")
     layout.addWidget(app.lbl_selection_timer)
 
     # Scroll area for photo grid

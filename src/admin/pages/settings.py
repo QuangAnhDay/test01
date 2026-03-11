@@ -136,19 +136,24 @@ class CameraSetupApp(QMainWindow):
         preview_layout = QVBoxLayout()
         layout.addLayout(preview_layout, 2)
 
-        self.preview_label = QLabel("Vui chọn camera để xem trước")
+        self.preview_label = QLabel("Camera Preview")
         self.preview_label.setAlignment(Qt.AlignCenter)
-        self.preview_label.setStyleSheet("background-color: black; color: white; border-radius: 10px; font-size: 16px;")
+        self.preview_label.setStyleSheet("background-color: black; color: white; border: 2px solid white;")
         self.preview_label.setFixedSize(560, 420)
         preview_layout.addWidget(self.preview_label)
 
         self.status_label = QLabel("Status: Chào mừng")
+        self.status_label.setStyleSheet("color: #333; font-weight: bold;")
         preview_layout.addWidget(self.status_label)
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_frame)
 
+        # Thread-safe camera opener
+        self.cam_thread = None
+
     def refresh_cameras(self):
+        """Lấy danh sách camera nhanh chóng mà không gây treo app."""
         self.combo_cam.blockSignals(True)
         self.combo_cam.clear()
 
@@ -161,35 +166,26 @@ class CameraSetupApp(QMainWindow):
             print(f"Pygrabber error: {e}")
 
         if cam_names:
-            # Luon hien tat ca camera tu pygrabber
             for i, name in enumerate(cam_names):
-                cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
-                ok = cap.isOpened()
-                cap.release()
-                if not ok:
-                    cap = cv2.VideoCapture(i)
-                    ok = cap.isOpened()
-                    cap.release()
-                status = "✅" if ok else "⚠️"
-                self.combo_cam.addItem(f"{status} {name} (Index {i})", i)
+                # KHÔNG tự ý mở camera ở đây vì gây treo UI (nhất là khi có nhiều camera)
+                self.combo_cam.addItem(f"📷 {name} (Index {i})", i)
         else:
-            found_any = False
+            # Fallback nếu pygrabber lỗi
             for i in range(5):
-                cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
-                if not cap.isOpened():
-                    cap = cv2.VideoCapture(i)
-                if cap.isOpened():
-                    self.combo_cam.addItem(f"Camera {i} (Index {i})", i)
-                    found_any = True
-                cap.release()
-            if not found_any:
-                self.combo_cam.addItem("Khong tim thay camera", -1)
+                self.combo_cam.addItem(f"Camera {i} (Index {i})", i)
 
         self.combo_cam.blockSignals(False)
-        if self.combo_cam.count() > 0:
-            self.combo_cam.setCurrentIndex(0)
+        
+        # Thử chọn lại index trong config nếu có
+        config_idx = self.config.get("camera_index", 0)
+        if isinstance(config_idx, int):
+            for i in range(self.combo_cam.count()):
+                if self.combo_cam.itemData(i) == config_idx:
+                    self.combo_cam.setCurrentIndex(i)
+                    break
 
     def start_preview(self):
+        """Khởi động camera ở luồng phụ để tránh treo UI."""
         if self.timer.isActive():
             self.timer.stop()
 
@@ -197,12 +193,9 @@ class CameraSetupApp(QMainWindow):
             self.cap.release()
             self.cap = None
 
-        # Lấy index: có thể là int hoặc str (URL)
+        # Lấy camera index
         url_input = self.edit_mjpeg.text().strip()
-        if url_input.startswith("http"):
-            index = url_input
-        else:
-            index = self.combo_cam.currentData()
+        index = url_input if url_input.startswith("http") else self.combo_cam.currentData()
 
         if index is None or (isinstance(index, int) and index < 0):
             self.preview_label.setText("Chưa chọn camera")
@@ -211,63 +204,45 @@ class CameraSetupApp(QMainWindow):
         use_dshow = self.check_dshow.isChecked()
         use_compat = self.check_compat.isChecked()
 
-        self.consecutive_fails = 0
-        self.status_label.setText(f"Status: Đang kết nối {index}...")
-        self.preview_label.setText(f"⏳ Đang mở {index}...")
-        QApplication.processEvents()  # Cập nhật UI ngay
+        # Disable các nút trong khi đang mở
+        self.btn_use_dslr.setEnabled(False)
+        self.combo_cam.setEnabled(False)
+        self.status_label.setText(f"Status: ⏳ Đang kết nối {index}...")
+        self.preview_label.setText(f"⏳ Đang mở {index}...\nVui lòng đợi (có thể mất vài giây)")
 
-        # Thử mở camera
-        if isinstance(index, str) and index.startswith("http"):
-            self.cap = cv2.VideoCapture(index)
-        elif use_dshow:
-            self.cap = cv2.VideoCapture(index, cv2.CAP_DSHOW)
-            if not self.cap.isOpened():
-                self.cap = cv2.VideoCapture(index)  # Fallback
-        else:
-            self.cap = cv2.VideoCapture(index)
+        # Sử dụng luồng phụ để mở camera
+        from src.modules.camera.camera_thread import CameraThread
+        if self.cam_thread:
+            self.cam_thread.stop()
+            self.cam_thread.frame_ready.disconnect()
 
-        if self.cap and self.cap.isOpened():
-            if use_compat:
-                # Tránh set FOURCC cho Virtual Camera vì dễ gây treo phần mềm
-                self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-                self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-            else:
-                self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-                self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 960)
+        self.cam_thread = CameraThread(index, use_dshow=use_dshow, use_compat=use_compat)
+        self.cam_thread.frame_ready.connect(self.on_frame_from_thread)
+        self.cam_thread.error_occurred.connect(self.on_camera_error)
+        self.cam_thread.start()
 
-            # Khởi động timer preview (sau khi warmup)
-            self.warmup_count = 0
-            self.status_label.setText(f"Status: Đang chạy Camera {index}")
+    def on_frame_from_thread(self, q_img):
+        """Callback khi có frame từ thread camera (Loại QImage)."""
+        # Re-enable UI nếu đây là frame đầu tiên
+        if not self.combo_cam.isEnabled():
+            self.combo_cam.setEnabled(True)
+            self.btn_use_dslr.setEnabled(True)
+            self.status_label.setText("Status: ✅ Camera đang hoạt động")
 
-            # Warmup: Đọc bỏ vài frame đầu (Giảm xuống 2 để chống treo)
-            for _ in range(2):
-                self.cap.read()
+        # Hiển thị lên UI (Signal đã là QImage và đã được lật/xoay sẵn trong thread)
+        pixmap = QPixmap.fromImage(q_img).scaled(560, 420, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        self.preview_label.setPixmap(pixmap)
 
-            self.timer.start(50)
-        else:
-            self.status_label.setText("Status: KHÔNG THỂ KẾT NỐI")
-            self.preview_label.setText(f"LỖI: Không thể mở Camera {index}\nHãy thử bật 'Chế độ tương thích' hoặc đổi Index")
+    def on_camera_error(self, message):
+        """Callback khi camera gặp lỗi."""
+        self.combo_cam.setEnabled(True)
+        self.btn_use_dslr.setEnabled(True)
+        self.status_label.setText(f"Status: ⚠️ Lỗi - {message}")
+        self.preview_label.setText(f"❌ LỖI KẾT NỐI\n{message}")
 
     def update_frame(self):
-        if self.cap and self.cap.isOpened():
-            ret, frame = self.cap.read()
-            if ret and frame is not None:
-                self.consecutive_fails = 0
-                frame = cv2.flip(frame, 1)
-                rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                h, w, ch = rgb_image.shape
-                bytes_per_line = ch * w
-                convert_to_Qt_format = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
-                p = convert_to_Qt_format.scaled(560, 420, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                self.preview_label.setPixmap(QPixmap.fromImage(p))
-            else:
-                self.consecutive_fails += 1
-                if self.consecutive_fails > 10:
-                    self.timer.stop()
-                    self.preview_label.setText("MẤT TÍN HIỆU\nĐang khởi động lại...")
-                    QTimer.singleShot(1500, self.start_preview)
-        else:
-            self.timer.stop()
+        # Hàm này không còn dùng nữa vì đã dùng CameraThread
+        pass
 
     def use_dslr_mjpeg(self):
         url = self.edit_mjpeg.text().strip()
@@ -304,6 +279,11 @@ class CameraSetupApp(QMainWindow):
             "height": h
         }
         save_camera_config(new_config)
+        
+        # Stop camera thread before exit
+        if self.cam_thread:
+            self.cam_thread.stop()
+            
         QMessageBox.information(self, "Thành công",
                                 "Đã lưu cấu hình camera!\nBây giờ bạn có thể chạy ứng dụng.")
         self.close()

@@ -38,6 +38,12 @@ class DownloadQRDialog(QDialog):
         self.setup_ui()
         self.start_upload()
 
+        # --- AUTO RESET TIMER (60s) ---
+        self.auto_close_timer = QTimer(self)
+        self.auto_close_timer.setSingleShot(True)
+        self.auto_close_timer.timeout.connect(self.accept) # Tự động đóng dialog
+        self.auto_close_timer.start(60000) # 60.000 ms = 60 s
+
     def setup_ui(self):
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignCenter)
@@ -159,6 +165,12 @@ class DownloadSingleQRDialog(QDialog):
 
         self.setup_ui()
         self.start_combined_upload()
+
+        # --- AUTO RESET TIMER (60s) ---
+        self.auto_close_timer = QTimer(self)
+        self.auto_close_timer.setSingleShot(True)
+        self.auto_close_timer.timeout.connect(self.accept) # Tự động đóng dialog
+        self.auto_close_timer.start(60000) # 60.000 ms = 60 s
 
     def setup_ui(self):
         layout = QVBoxLayout(self)

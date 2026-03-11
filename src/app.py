@@ -78,32 +78,33 @@ GLOBAL_STYLESHEET = """
     QMainWindow { background-color: #F5EBEC; }
     QLabel { 
         color: white; 
-        font-family: 'Arial', 'Tahoma', 'Segoe UI', sans-serif;
+        font-family: 'Cooper Black', 'Arial', 'Tahoma', 'Segoe UI', sans-serif;
         font-size: 18px;
     }
     QLabel#TitleLabel {
         font-size: 32px; font-weight: bold; color: #eaf0f6;
-        font-family: 'Arial', 'Tahoma', sans-serif;
+        font-family: 'Cooper Black', 'Arial', 'Tahoma', sans-serif;
     }
     QLabel#SubTitleLabel {
         font-size: 24px; font-weight: bold; color: #ffd700;
-        font-family: 'Arial', 'Tahoma', sans-serif;
+        font-family: 'Cooper Black', 'Arial', 'Tahoma', sans-serif;
     }
     QLabel#CountdownLabel {
         font-size: 120px; font-weight: bold; color: #ffd700;
+        font-family: 'Cooper Black', 'Arial', sans-serif;
     }
     QLabel#InfoLabel {
         font-size: 24px; color: #a8dadc;
-        font-family: 'Arial', 'Tahoma', sans-serif;
+        font-family: 'Cooper Black', 'Arial', 'Tahoma', sans-serif;
     }
     QLabel#PriceLabel {
         font-size: 28px; font-weight: bold; color: #06d6a0;
-        font-family: 'Arial', 'Tahoma', sans-serif;
+        font-family: 'Cooper Black', 'Arial', 'Tahoma', sans-serif;
     }
     QPushButton {
         background-color: #e94560; color: white; border: none;
         border-radius: 15px; padding: 20px 40px; font-size: 22px;
-        font-weight: bold; font-family: 'Arial', 'Tahoma', sans-serif;
+        font-weight: bold; font-family: 'Cooper Black', 'Arial', 'Tahoma', sans-serif;
         min-height: 60px;
     }
     QPushButton:hover { background-color: #ff6b6b; }
@@ -189,40 +190,45 @@ class PhotoboothApp(QMainWindow):
         _cam_w = _cam_cfg.get("width", 1280)
         _cam_h = _cam_cfg.get("height", 960)
 
+        _cam_h = _cam_cfg.get("height", 960)
+
         print(f"[DEBUG] Camera Config Loaded: {_cam_cfg}")
         print(f"[DEBUG] Final Cam Index: {_cam_idx} (Type: {type(_cam_idx)})")
 
-        if isinstance(_cam_idx, str) and _cam_idx.startswith("http"):
-            self.cap = cv2.VideoCapture(_cam_idx)
-            print(f"[CAMERA] Kết nối DSLR qua MJPEG: {_cam_idx}")
-        elif _use_dshow and os.name == "nt":
-            self.cap = cv2.VideoCapture(_cam_idx, cv2.CAP_DSHOW)
-            if not self.cap.isOpened():
-                self.cap = cv2.VideoCapture(_cam_idx)  # Fallback
-        else:
-            self.cap = cv2.VideoCapture(_cam_idx)
-
-        # Chế độ tương thích (Chỉ áp dụng cho webcam thật)
-        if not (isinstance(_cam_idx, str) and _cam_idx.startswith("http")):
-            if _use_compat:
-                self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
-                self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-                self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-                print(f"[CAMERA] Main App: Compat mode (MJPG 640x480)")
-            else:
-                self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, _cam_w)
-                self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, _cam_h)
-
+        self.cap = None
         self.current_camera_index = _cam_idx
         self._cam_read_fail_count = 0
 
-        # Warmup: Đọc bỏ vài frame đầu
-        if self.cap.isOpened():
-            for _ in range(5):
-                self.cap.read()
-            print(f"[CAMERA] Đã mở camera index {_cam_idx} (dshow={_use_dshow}, compat={_use_compat})")
-        else:
-            print(f"[CAMERA ERROR] Không thể mở camera index {_cam_idx}")
+        # Chỉ mở camera ở app.py nếu KHÔNG PHẢI chế độ Free (Bản Free tự quản lý Thread riêng)
+        if not getattr(self, 'is_free_mode', False):
+            if isinstance(_cam_idx, str) and _cam_idx.startswith("http"):
+                self.cap = cv2.VideoCapture(_cam_idx)
+                print(f"[CAMERA] Kết nối DSLR qua MJPEG: {_cam_idx}")
+            elif _use_dshow and os.name == "nt":
+                self.cap = cv2.VideoCapture(_cam_idx, cv2.CAP_DSHOW)
+                if not self.cap.isOpened():
+                    self.cap = cv2.VideoCapture(_cam_idx)  # Fallback
+            else:
+                self.cap = cv2.VideoCapture(_cam_idx)
+
+            # Chế độ tương thích (Chỉ áp dụng cho webcam thật)
+            if self.cap and not (isinstance(_cam_idx, str) and _cam_idx.startswith("http")):
+                if _use_compat:
+                    self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+                    self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+                    self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+                    print(f"[CAMERA] Main App: Compat mode (MJPG 640x480)")
+                else:
+                    self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, _cam_w)
+                    self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, _cam_h)
+
+            # Warmup: Đọc bỏ vài frame đầu
+            if self.cap and self.cap.isOpened():
+                for _ in range(5):
+                    self.cap.read()
+                print(f"[CAMERA] Đã mở camera index {_cam_idx} (dshow={_use_dshow}, compat={_use_compat})")
+            else:
+                print(f"[CAMERA ERROR] Không thể mở camera index {_cam_idx}")
 
         # --- MAIN LAYOUT ---
         self.central_widget = QWidget()
@@ -384,7 +390,8 @@ class PhotoboothApp(QMainWindow):
             temp_pix = QPixmap(path)
             if not temp_pix.isNull():
                 final_pix = QPixmap(temp_pix.size())
-                final_pix.fill(Qt.white)
+                from PyQt5.QtGui import QColor
+                final_pix.fill(QColor(242, 227, 229)) # Màu hồng giống màu nền (#F2E3E5)
                 from PyQt5.QtGui import QPainter
                 painter = QPainter(final_pix)
                 painter.drawPixmap(0, 0, temp_pix)
@@ -393,13 +400,13 @@ class PhotoboothApp(QMainWindow):
                 final_pix = temp_pix
 
             if is_custom:
-                btn.setFixedSize(450, 680)
-                pix = final_pix.scaled(430, 660, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                btn.setIconSize(QSize(430, 660))
+                btn.setFixedSize(380, 580)
+                pix = final_pix.scaled(360, 560, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                btn.setIconSize(QSize(360, 560))
             else:
-                btn.setFixedSize(230, 680)
-                pix = final_pix.scaled(210, 660, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                btn.setIconSize(QSize(210, 660))
+                btn.setFixedSize(220, 680)
+                pix = final_pix.scaled(200, 660, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                btn.setIconSize(QSize(200, 660))
 
             btn.setIcon(QIcon(pix))
             btn.setCheckable(True)
@@ -553,9 +560,37 @@ class PhotoboothApp(QMainWindow):
                      self.camera_label.setPixmap(scaled)
                 
                 # 3. Vẽ lên Step 9 (Interactive MỚI)
-                elif self.stacked.currentIndex() == 9 and hasattr(self, 'interactive_camera_label'):
-                     scaled_mini = qt_img.scaled(self.interactive_camera_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                     self.interactive_camera_label.setPixmap(scaled_mini)
+                elif self.stacked.currentIndex() == 9:
+                    # Lấy cấu hình layout để biết tỷ lệ slot
+                    curr_layout = getattr(self, 'layout_type', '4x1')
+                    from src.shared.types.models import get_layout_config
+                    cfg = get_layout_config(curr_layout)
+                    slots = cfg.get("SLOTS", [])
+                    
+                    display_frame = frame
+                    if slots:
+                        sw, sh = slots[0][2], slots[0][3] # Lấy W, H của slot đầu tiên
+                        from src.modules.image_processing.processor import crop_to_aspect_wh
+                        display_frame = crop_to_aspect_wh(frame, sw, sh)
+                        
+                    qt_img_display = convert_cv_qt(display_frame)
+
+                    # Cập nhật màn hình chụp Full (Page 1)
+                    if hasattr(self, 'interactive_camera_label'):
+                        lbl_size = self.interactive_camera_label.size()
+                        if not lbl_size.isEmpty():
+                            scaled_full = qt_img_display.scaled(lbl_size, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+                            self.interactive_camera_label.setPixmap(scaled_full)
+                        
+                    # Cập nhật Camera mini ở sidebar (Page 0)
+                    if hasattr(self, 'interactive_camera_mini'):
+                        from src.shared.utils.helpers import get_rounded_pixmap
+                        mini_w = self.interactive_camera_mini.width() - 20
+                        mini_h = self.interactive_camera_mini.height() - 20
+                        mini_scaled = qt_img_display.scaled(mini_w, mini_h,
+                                                   Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+                        mini_rounded = get_rounded_pixmap(mini_scaled, radius=25) 
+                        self.interactive_camera_mini.setPixmap(mini_rounded)
             else:
                 self._cam_read_fail_count += 1
                 if self._cam_read_fail_count > 60: # ~2 giây mất hình
@@ -585,6 +620,13 @@ class PhotoboothApp(QMainWindow):
             self.trigger_dslr_capture()
             import time
             time.sleep(0.4) # Chờ màn trập và stream cập nhật
+
+        # Cập nhật frame mới nhất từ Camera
+        if hasattr(self, 'cap') and self.cap is not None:
+             ret, frame = self.cap.read()
+             if ret: self.current_frame = frame
+        elif hasattr(self, 'cam_thread') and self.cam_thread and self.cam_thread.last_cv_frame is not None:
+             self.current_frame = self.cam_thread.last_cv_frame.copy()
 
         if self.current_frame is not None:
             self.captured_photos.append(self.current_frame.copy())
@@ -886,16 +928,28 @@ class PhotoboothApp(QMainWindow):
 
         for idx, path in enumerate(self.templates):
             btn = QPushButton()
-            # Tự động chọn kích thước dựa trên nhóm filter hiện tại
+            # Khắc phục lỗi hiển thị icon bị đen xì ở các slot trong suốt:
+            temp_pix = QPixmap(path)
+            if not temp_pix.isNull():
+                final_pix = QPixmap(temp_pix.size())
+                from PyQt5.QtGui import QColor
+                final_pix.fill(QColor(242, 227, 229)) # Màu hồng giống màu nền
+                from PyQt5.QtGui import QPainter
+                painter = QPainter(final_pix)
+                painter.drawPixmap(0, 0, temp_pix)
+                painter.end()
+            else:
+                final_pix = temp_pix
+
             is_custom = getattr(self, '_current_group_filter', '') == "custom"
             if is_custom:
-                btn.setFixedSize(450, 680)
-                pix = QPixmap(path).scaled(430, 660, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                btn.setIconSize(QSize(430, 660))
+                btn.setFixedSize(380, 580)
+                pix = final_pix.scaled(360, 560, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                btn.setIconSize(QSize(360, 560))
             else:
-                btn.setFixedSize(230, 680)
-                pix = QPixmap(path).scaled(210, 660, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                btn.setIconSize(QSize(210, 660))
+                btn.setFixedSize(220, 680)
+                pix = final_pix.scaled(200, 660, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                btn.setIconSize(QSize(200, 660))
 
             btn.setIcon(QIcon(pix))
             btn.setCheckable(True)
@@ -946,10 +1000,16 @@ class PhotoboothApp(QMainWindow):
         if self.collage_image is not None:
             self.merged_image = apply_template_overlay(self.collage_image, template_path)
         else:
-            # Chưa có ảnh -> Tạo canvas trống với màu hồng nhạt sang trọng + đè template lên
-            bw, bh = cfg.get("CANVAS_W", 800), cfg.get("CANVAS_H", 600)
+            # Chưa có ảnh -> Tạo canvas trống với màu hồng nhạt + vẽ các ô giữ chỗ màu xám
+            bw, bh = cfg.get("CANVAS_W", 1210), cfg.get("CANVAS_H", 1810)
             blank = np.zeros((bh, bw, 3), dtype=np.uint8)
             blank[:] = (245, 245, 255) 
+            
+            # Vẽ các ô "chừa phần chứa ảnh" bằng màu hồng nền để tạo cảm giác trong suốt
+            slots = cfg.get("SLOTS", [])
+            for sx, sy, sw, sh in slots:
+                cv2.rectangle(blank, (sx, sy), (sx+sw, sy+sh), (229, 227, 242), -1)
+                
             self.merged_image = apply_template_overlay(blank, template_path)
             
         self.update_template_preview()
@@ -1068,8 +1128,14 @@ class PhotoboothApp(QMainWindow):
             import time
             time.sleep(0.5) # Wait for DSLR shutter and MJPEG update
 
-        ret, frame = self.cap.read()
-        if ret:
+        # Cố gắng lấy frame từ cap (bản trả phí) hoặc thread (bản Free)
+        ret, frame = False, None
+        if hasattr(self, 'cap') and self.cap is not None:
+            ret, frame = self.cap.read()
+        elif hasattr(self, 'cam_thread') and self.cam_thread and self.cam_thread.last_cv_frame is not None:
+            ret, frame = True, self.cam_thread.last_cv_frame.copy()
+            
+        if ret and frame is not None:
             frame = cv2.flip(frame, 1)
             self.interactive_photos.append(frame.copy())
             self.current_slot_index += 1
@@ -1096,7 +1162,7 @@ class PhotoboothApp(QMainWindow):
         from src.modules.image_processing.processor import apply_template_overlay, crop_to_aspect_wh
         
         cfg = get_layout_config(self.layout_type)
-        bw, bh = cfg.get("CANVAS_W", 800), cfg.get("CANVAS_H", 1200)
+        bw, bh = cfg.get("CANVAS_W", 1210), cfg.get("CANVAS_H", 1810)
         
         # Nền hồng nhạt sang trọng (#FFF5F5 -> BGR: 245, 245, 255)
         canvas = np.zeros((bh, bw, 3), dtype=np.uint8)
@@ -1117,8 +1183,8 @@ class PhotoboothApp(QMainWindow):
                 resized = cv2.resize(cropped, (sw, sh))
                 canvas[sy:sy+sh, sx:sx+sw] = resized
             else:
-                # Vẽ ô trống màu trắng hồng nhẹ (#FFF9F9 -> BGR: 249, 249, 255)
-                cv2.rectangle(canvas, (sx, sy), (sx+sw, sy+sh), (249, 249, 255), -1)
+                # Vẽ ô trống màu hồng giống màu nền (#F2E3E5 -> BGR: 229, 227, 242)
+                cv2.rectangle(canvas, (sx, sy), (sx+sw, sy+sh), (229, 227, 242), -1)
         
         # Vẽ viền bao quanh toàn bộ canvas để thấy rõ biên
         cv2.rectangle(canvas, (0, 0), (bw-1, bh-1), (0, 0, 0), 5)
@@ -1180,14 +1246,43 @@ class PhotoboothApp(QMainWindow):
         self.layout_type = ""
         self.stacked.setCurrentIndex(0)
 
+    def open_camera_setup(self):
+        """Mở cửa sổ thiết lập Camera (phím F1)."""
+        from src.admin.pages.settings import CameraSetupApp
+        if hasattr(self, 'camera_setup_window') and self.camera_setup_window.isVisible():
+            self.camera_setup_window.activateWindow()
+        else:
+            self.camera_setup_window = CameraSetupApp()
+            self.camera_setup_window.show()
+
+    def open_admin_dashboard(self):
+        """Mở bảng điều khiển quản trị (phím F3)."""
+        from src.admin.pages.dashboard import AdminSetup
+        if hasattr(self, 'admin_dashboard_window') and self.admin_dashboard_window.isVisible():
+            self.admin_dashboard_window.activateWindow()
+        else:
+            self.admin_dashboard_window = AdminSetup()
+            self.admin_dashboard_window.show()
+
     def keyPressEvent(self, event):
         """Xử lý phím tắt - Chế độ Admin."""
-        if event.key() == Qt.Key_F2:
+        if event.key() == Qt.Key_F1:
+            self.open_camera_setup()
+
+        elif event.key() == Qt.Key_F2:
             # Mở trình thiết kế layout (chỉ dành cho Admin)
             QMessageBox.information(self, "Admin Mode", "Đang mở trình thiết kế Bố cục (Layout Designer)...")
             self.stacked.setCurrentIndex(8)
             if hasattr(self, 'custom_editor_step'):
                 self.custom_editor_step.update_preview()
+
+        elif event.key() == Qt.Key_F3:
+            self.open_admin_dashboard()
+            
+        elif event.key() == Qt.Key_F5:
+            print("[ADMIN] Manual Reset requested via F5")
+            self.reset_all()
+
         super().keyPressEvent(event)
 
     def closeEvent(self, event):
@@ -1226,20 +1321,54 @@ class PhotoboothApp(QMainWindow):
 # ENTRY POINT
 # ==========================================
 
+def is_cloudinary_valid():
+    """Kiểm tra xem thông số Cloudinary đã đầy đủ chưa."""
+    from src.shared.types.models import APP_CONFIG
+    cloud = APP_CONFIG.get('cloudinary', {})
+    return all([cloud.get('cloud_name'), cloud.get('api_key'), cloud.get('api_secret')])
+
+
 def main():
     """Entry point cho chế độ có thanh toán."""
-    if not load_config():
-        app = QApplication(sys.argv)
-        QMessageBox.critical(
-            None, "❌ Thiếu cấu hình",
-            "Không tìm thấy file config.json!\n\n"
-            "Vui lòng chạy setup_admin.py trước để tạo cấu hình."
-        )
-        sys.exit(1)
-
+    app = QApplication(sys.argv)
     ensure_directories()
 
-    app = QApplication(sys.argv)
+    # 1. Tải cấu hình
+    config_loaded = load_config()
+    
+    # 2. Kiểm tra tính hợp lệ của Cloudinary
+    if not config_loaded or not is_cloudinary_valid():
+        from src.admin.pages.dashboard import AdminSetup
+        
+        # Thông báo cho người dùng
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Information)
+        msg.setWindowTitle("Cấu hình hệ thống")
+        msg.setText("Chào mừng! Hệ thống phát hiện bạn chưa cấu hình thông số Cloudinary.")
+        msg.setInformativeText(
+            "Vui lòng nhập 'Cloud Name', 'API Key' và 'API Secret' trong mục 'API KEYS & CLOUD' "
+            "để ứng dụng có thể upload và trả ảnh qua QR Code.\n\n"
+            "Sau khi LƯU, hãy đóng cửa sổ cấu hình để bắt đầu ứng dụng."
+        )
+        msg.setStandardButtons(QMessageBox.Ok)
+        msg.exec_()
+
+        # Hiển thị trang Admin Setup
+        admin_win = AdminSetup()
+        admin_win.show()
+        
+        # Chờ người dùng cấu hình xong và đóng cửa sổ
+        app.exec_()
+        
+        # Sau khi đóng, kiểm tra lại
+        load_config()
+        if not is_cloudinary_valid():
+            print("[INFO] Cấu hình vẫn chưa hoàn thiện. Thoát ứng dụng.")
+            return 0
+        
+        print("[INFO] Cấu hình hợp lệ. Đang khởi động Photobooth...")
+
+    # 3. Khởi động ứng dụng chính
     font = QFont("Arial", 12)
     font.setStyleHint(QFont.SansSerif)
     app.setFont(font)

@@ -189,8 +189,11 @@ class HomeScreen(QWidget):
     def apply_styles(self):
         """Áp dụng style toàn cục cho màn hình"""
         self.setStyleSheet("""
-            QWidget {
+            HomeScreen {
                 background-color: #E9E1E3;
+            }
+            QLabel {
+                font-family: 'Cooper Black', 'Segoe UI', Arial;
             }
             QFrame#contentFrame {
                 background-color: #E9E1E3;

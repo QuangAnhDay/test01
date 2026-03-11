@@ -25,7 +25,7 @@ def create_finish_screen(app):
     title_box.setGeometry(685, 40, 550, 85) 
     title_box.setStyleSheet("""
         background-color: #FADBDC; color: white;
-        font-family: 'Arial'; font-size: 36px; font-style: italic; font-weight: bold;
+        font-family: 'Cooper Black', 'Arial'; font-size: 36px; font-style: italic; font-weight: bold;
         border-radius: 25px; border: 5px solid white;
     """)
 
@@ -50,7 +50,7 @@ def create_finish_screen(app):
     app.btn_accept.setStyleSheet("""
         QPushButton {
             background-color: #FF7E7E; color: white;
-            font-family: 'Arial'; font-size: 38px; font-style: italic; font-weight: bold;
+            font-family: 'Cooper Black', 'Arial'; font-size: 38px; font-style: italic; font-weight: bold;
             border-radius: 25px; border: 5px solid white;
         }
         QPushButton:hover { background-color: #FF9494; }
