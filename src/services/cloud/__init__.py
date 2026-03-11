@@ -1,3 +1,2 @@
-# Backward-compatible re-export
-# Cloud upload code đã chuyển sang src.services.cloud
+# Cloud Upload Service
 from src.services.cloud.cloud_upload import CloudinaryUploadThread, CloudinaryLandingPageThread
