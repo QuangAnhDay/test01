@@ -258,9 +258,25 @@ class CameraView(QFrame):
         # Đặt camera ban đầu
         self.camera_worker.camera_index = initial_camera_index
 
+    def set_frame(self, q_img):
+        """Đẩy frame từ bên ngoài vào (dùng cho kiến trúc tập trung CameraHandler)."""
+        if q_img and not q_img.isNull():
+            # Áp dụng bo góc nếu cần
+            if self.image_label:
+                self.image_label.setPixmap(QPixmap.fromImage(q_img).scaled(
+                    self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
+                ))
+
     def set_capture(self, cap):
-        """Backward-compatible: Sử dụng đối tượng capture có sẵn từ bên ngoài."""
-        self.camera_worker.set_external_capture(cap)
+        """Hỗ trợ backward compatibility."""
+        if cap:
+            self.camera_worker.set_external_capture(cap)
+            # If an external capture is provided, and the worker is not running,
+            # we might need to start it to process frames if it's in a mode
+            # where it expects to be started but not read from.
+            # However, the CameraView.start() method already handles the external_cap logic.
+            # So, just setting the external capture is sufficient.
+            # The worker's run loop will then respect the external_cap flag.
 
     def start(self):
         """Khởi động camera"""

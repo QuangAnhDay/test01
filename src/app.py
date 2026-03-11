@@ -68,7 +68,12 @@ from src.photobooth.steps.step_9_interactive import create_interactive_capture_s
 from src.ui.screens.home_screen import HomeScreen
 
 # Import flow controller
-from src.photobooth.hooks.flow_controller import FlowController
+from src.core.state.flow_controller import FlowController
+
+# Import Handlers
+from src.services.camera import CameraHandler
+from src.services.payment import PaymentHandler
+from src.services.image import ImageWorkflow
 
 
 # ==========================================
@@ -102,11 +107,15 @@ class PhotoboothApp(QMainWindow):
         self.payment_confirmed = self.flow.payment_confirmed
         self.layout_type = self.flow.layout_type
 
-        # Thread references
-        self.casso_thread = None
-        self.qr_loader_thread = None
-        self.current_transaction_code = ""
-        self.current_amount = 0
+        # --- SERVICES & HANDLERS ---
+        self.payment_handler = PaymentHandler()
+        self.camera_handler = CameraHandler()
+        self.image_workflow = ImageWorkflow()
+        
+        # Connect signals
+        self.payment_handler.payment_success.connect(self.on_payment_received)
+        self.payment_handler.qr_loaded.connect(self.on_qr_loaded)
+        self.image_workflow.processing_finished.connect(self.on_processing_finished)
 
         # Cache cho layout và rotation
         self._cached_layout_type = None
@@ -115,7 +124,7 @@ class PhotoboothApp(QMainWindow):
         # Gallery photos
         self.gallery_photos = load_sample_photos()
 
-        # --- CAMERA (đọc từ camera_settings.json) ---
+        # --- CAMERA CONFIG ---
         import json
         _cam_cfg = {}
         from src.config import CAMERA_SETTINGS_PATH
@@ -133,45 +142,18 @@ class PhotoboothApp(QMainWindow):
         _cam_w = _cam_cfg.get("width", 1280)
         _cam_h = _cam_cfg.get("height", 960)
 
-        _cam_h = _cam_cfg.get("height", 960)
-
-        print(f"[DEBUG] Camera Config Loaded: {_cam_cfg}")
-        print(f"[DEBUG] Final Cam Index: {_cam_idx} (Type: {type(_cam_idx)})")
-
-        self.cap = None
-        self.current_camera_index = _cam_idx
-        self._cam_read_fail_count = 0
-
-        # Chỉ mở camera ở app.py nếu KHÔNG PHẢI chế độ Free (Bản Free tự quản lý Thread riêng)
+        # --- CAMERA SETUP via HANDLER ---
+        self.camera_handler.camera_index = _cam_idx
+        self.camera_handler._width = _cam_w
+        self.camera_handler._height = _cam_h
+        self.camera_handler._use_dshow = _use_dshow
+        self.camera_handler._use_compat = _use_compat
+        
+        # Chỉ khởi chạy camera ngay nếu không phải bản Free
         if not getattr(self, 'is_free_mode', False):
-            if isinstance(_cam_idx, str) and _cam_idx.startswith("http"):
-                self.cap = cv2.VideoCapture(_cam_idx)
-                print(f"[CAMERA] Kết nối DSLR qua MJPEG: {_cam_idx}")
-            elif _use_dshow and os.name == "nt":
-                self.cap = cv2.VideoCapture(_cam_idx, cv2.CAP_DSHOW)
-                if not self.cap.isOpened():
-                    self.cap = cv2.VideoCapture(_cam_idx)  # Fallback
-            else:
-                self.cap = cv2.VideoCapture(_cam_idx)
-
-            # Chế độ tương thích (Chỉ áp dụng cho webcam thật)
-            if self.cap and not (isinstance(_cam_idx, str) and _cam_idx.startswith("http")):
-                if _use_compat:
-                    self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
-                    self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-                    self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-                    print(f"[CAMERA] Main App: Compat mode (MJPG 640x480)")
-                else:
-                    self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, _cam_w)
-                    self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, _cam_h)
-
-            # Warmup: Đọc bỏ vài frame đầu
-            if self.cap and self.cap.isOpened():
-                for _ in range(5):
-                    self.cap.read()
-                print(f"[CAMERA] Đã mở camera index {_cam_idx} (dshow={_use_dshow}, compat={_use_compat})")
-            else:
-                print(f"[CAMERA ERROR] Không thể mở camera index {_cam_idx}")
+            self.camera_handler.start()
+            # Đăng ký callback mặc định cho Home
+            self.camera_handler.set_callback(self.on_frame_home)
 
         # --- MAIN LAYOUT ---
         self.central_widget = QWidget()
@@ -201,18 +183,38 @@ class PhotoboothApp(QMainWindow):
         self.stacked.addWidget(create_photo_select_screen(self))  # 5 - Photo Select
         self.stacked.addWidget(create_template_screen(self))      # 6 - Template
         self.stacked.addWidget(create_finish_screen(self))        # 7 - Finish
-        self.stacked.addWidget(create_custom_editor_screen(self)) # 8 - Custom Editor
-        self.stacked.addWidget(create_interactive_capture_screen(self)) # 9 - Chụp & Ghép trực tiếp
+        self.stacked.addWidget(create_custom_editor_screen(self)) # 8 - Admin Setup
+        self.stacked.addWidget(create_interactive_capture_screen(self)) # 9 - Interactive
+
+        self.stacked.setCurrentIndex(0)
+        
+        # Connect camera handler to initial screen
+        self.camera_handler.set_callback(self.on_frame_home)
+
+    def on_frame_home(self, qt_img):
+        """Feed cho màn hình HomeScreen."""
+        if hasattr(self, 'home_screen') and self.home_screen.camera_view:
+            self.home_screen.camera_view.set_frame(qt_img)
+
+    def on_frame_liveview(self, qt_img):
+        """Feed cho màn hình LiveView (Step 3)."""
+        if hasattr(self, 'camera_label'):
+            scaled = qt_img.scaled(self.camera_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            self.camera_label.setPixmap(QPixmap.fromImage(scaled))
+
+    def on_frame_interactive(self, qt_img):
+        """Feed cho màn hình Interactive (Step 9)."""
+        if hasattr(self, 'interactive_camera_label'):
+            lbl_size = self.interactive_camera_label.size()
+            if not lbl_size.isEmpty():
+                scaled = qt_img.scaled(lbl_size, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+                self.interactive_camera_label.setPixmap(QPixmap.fromImage(scaled))
 
         # Trạng thái lấp đầy slot
         self.current_slot_index = 0
         self.interactive_photos = []
 
         # --- TIMERS ---
-        self.camera_timer = QTimer()
-        self.camera_timer.timeout.connect(self.update_camera_frame)
-        self.camera_timer.start(30)
-
         self.countdown_timer = QTimer()
         self.countdown_timer.timeout.connect(self.countdown_tick)
 
@@ -394,8 +396,12 @@ class PhotoboothApp(QMainWindow):
         self.select_layout_and_price(slot_count, target_layout)
 
     def go_to_price_select(self):
+        """Chuyển đến màn hình chọn gói."""
         self.state = "PRICE_SELECT"
-        self.stacked.setCurrentIndex(1)
+        if hasattr(self, 'stacked'):
+            self.stacked.setCurrentIndex(1)
+        # Ngắt feed camera khi ở màn hình chọn gói để tiết kiệm tài nguyên
+        self.camera_handler.set_callback(None)
 
     def select_layout_and_price(self, photo_count, layout_type):
         """Xử lý khi chọn gói - Chuyển sang chọn Template trước khi chụp."""
@@ -423,14 +429,13 @@ class PhotoboothApp(QMainWindow):
         self.qr_label.setPixmap(pixmap)
 
     def start_casso_check(self):
-        if hasattr(self, 'casso_thread') and self.casso_thread and self.casso_thread.isRunning():
-            self.casso_thread.stop()
-            self.casso_thread.wait()
+        """Khởi chạy quy trình thanh toán qua PaymentHandler."""
+        self.payment_handler.start_payment_process(self.current_amount)
 
-        self.casso_thread = CassoCheckThread(self.current_amount, self.current_transaction_code)
-        self.casso_thread.payment_received.connect(self.on_payment_received)
-        self.casso_thread.check_error.connect(self.on_casso_error)
-        self.casso_thread.start()
+    def on_qr_loaded(self, pixmap):
+        """Callback khi ảnh QR đã được tải xong."""
+        scaled = pixmap.scaled(350, 350, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        self.qr_label.setPixmap(scaled)
 
     def on_payment_received(self):
         self.payment_status_label.setText("✅ ĐÃ NHẬN THANH TOÁN!")
@@ -444,11 +449,7 @@ class PhotoboothApp(QMainWindow):
         self.payment_status_label.setStyleSheet("font-size: 16px; color: #ff6b6b;")
 
     def cancel_payment_and_go_back(self):
-        if hasattr(self, 'casso_thread') and self.casso_thread and self.casso_thread.isRunning():
-            self.casso_thread.stop()
-            self.casso_thread.wait()
-        if hasattr(self, 'qr_loader_thread') and self.qr_loader_thread and self.qr_loader_thread.isRunning():
-            self.qr_loader_thread.wait()
+        self.payment_handler.stop_checks()
         self.stacked.setCurrentIndex(1)
 
     def go_to_capture_screen(self):
@@ -564,12 +565,9 @@ class PhotoboothApp(QMainWindow):
             import time
             time.sleep(0.4) # Chờ màn trập và stream cập nhật
 
-        # Cập nhật frame mới nhất từ Camera
-        if hasattr(self, 'cap') and self.cap is not None:
-             ret, frame = self.cap.read()
-             if ret: self.current_frame = frame
-        elif hasattr(self, 'cam_thread') and self.cam_thread and self.cam_thread.last_cv_frame is not None:
-             self.current_frame = self.cam_thread.last_cv_frame.copy()
+        # Cập nhật frame mới nhất từ CameraHandler
+        if self.camera_handler.thread and self.camera_handler.thread.last_cv_frame is not None:
+             self.current_frame = self.camera_handler.thread.last_cv_frame.copy()
 
         if self.current_frame is not None:
             self.captured_photos.append(self.current_frame.copy())
@@ -1146,36 +1144,45 @@ class PhotoboothApp(QMainWindow):
         self.handle_template_confirmation()
 
     def accept_and_print(self):
-        self.template_timer.stop()
-        # Dùng merged_image nếu có, nếu không dùng collage_image (từ interactive capture)
-        final_image = self.merged_image if self.merged_image is not None else self.collage_image
-        if final_image is None:
-            return
-        self.merged_image = final_image
+        """Hoàn tất quá trình và tạo ảnh cuối cùng."""
+        if hasattr(self, 'template_timer'):
+            self.template_timer.stop()
+        
+        # Nếu đang ở chế độ Interactive, ta dùng interactive_photos
+        # Nếu không, ta dùng captured_photos
+        photos_to_use = getattr(self, 'interactive_photos', self.captured_photos)
+        
+        # Gọi workflow xử lý (Tạo collage + Overlay template + Save)
+        self.image_workflow.process_final_image(
+            photos_to_use, 
+            self.layout_type, 
+            self.selected_template_path
+        )
 
-        output_folder = r"D:\picture"
-        os.makedirs(output_folder, exist_ok=True)
+    def on_processing_finished(self, save_path, final_img):
+        """Callback khi ImageWorkflow hoàn tất."""
+        self.merged_image = final_img
+        
+        # Cập nhật gallery
+        self.gallery_photos = load_sample_photos()
+        if hasattr(self, 'carousel1'):
+            half = len(self.gallery_photos) // 2
+            self.carousel1.set_photos(self.gallery_photos[:max(half, 4)])
+            self.carousel2.set_photos(
+                self.gallery_photos[half:] if half > 0 else self.gallery_photos[:4])
 
-        timestamp = time.strftime("%Y%m%d-%H%M%S")
-        filename = f"photo_{timestamp}.jpg"
-        filepath = os.path.join(output_folder, filename)
-
-        try:
-            cv2.imwrite(filepath, self.merged_image)
-
-            self.gallery_photos = load_sample_photos()
-            if hasattr(self, 'carousel1'):
-                half = len(self.gallery_photos) // 2
-                self.carousel1.set_photos(self.gallery_photos[:max(half, 4)])
-                self.carousel2.set_photos(
-                    self.gallery_photos[half:] if half > 0 else self.gallery_photos[:4])
-
-            dialog = DownloadQRDialog(filepath, self)
-            dialog.exec_()
-            self.reset_all()
-
-        except Exception as e:
-            QMessageBox.critical(self, "❌ LỖI LƯU ẢNH", f"Không thể lưu ảnh: {str(e)}")
+        # Hiển thị QR tải ảnh (Dialog)
+        from src.ui.dialogs.dialogs import DownloadQRDialog, DownloadSingleQRDialog
+        if getattr(self, 'is_free_mode', False):
+            video_path = getattr(self, 'current_video_path', None)
+            dialog = DownloadSingleQRDialog(save_path, video_path, self)
+        else:
+            dialog = DownloadQRDialog(save_path, self)
+        
+        dialog.exec_()
+        
+        # Reset ứng dụng về trạng thái ban đầu
+        self.reset_all()
 
     def reset_all(self):
         self.state = "START"
@@ -1186,8 +1193,8 @@ class PhotoboothApp(QMainWindow):
         self.merged_image = None
         self.payment_confirmed = False
         self.selected_price_type = 0
-        self.layout_type = ""
         self.stacked.setCurrentIndex(0)
+        self.camera_handler.set_callback(self.on_frame_home)
 
     def open_camera_setup(self):
         """Mở cửa sổ thiết lập Camera (phím F1)."""

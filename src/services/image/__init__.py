@@ -2,12 +2,7 @@
 # IMAGE SERVICE PACKAGE
 # ==========================================
 """
-Service xử lý ảnh, được tách từ modules/image_processing/processor.py.
-
-Sub-modules:
-  - collage.py   → Tạo collage từ nhiều ảnh
-  - template.py  → Load, detect, overlay template
-  - filters.py   → Apply filter lên ảnh
+Service xử lý ảnh.
 """
 
 from src.services.image.collage import create_collage, crop_to_aspect_wh
@@ -18,3 +13,5 @@ from src.services.image.template import (
     detect_layout_from_template,
     apply_template_overlay,
 )
+from src.services.image.filters import apply_filter, get_available_filters
+from src.services.image.image_workflow import ImageWorkflow
