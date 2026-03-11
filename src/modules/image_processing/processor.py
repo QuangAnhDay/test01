@@ -348,3 +348,51 @@ def apply_template_overlay(collage_image, template_path):
     if template is not None and collage_image is not None:
         return overlay_images(collage_image.copy(), template)
     return collage_image
+
+
+# ==========================================
+# CÁC BỘ LỌC ẢNH (FILTERS)
+# ==========================================
+
+def apply_filter(img, filter_name):
+    """Áp dụng bộ lọc cho ảnh dựa trên tên bộ lọc."""
+    if img is None or filter_name == "Original":
+        return img
+
+    if filter_name == "Grayscale":
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        return cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
+
+    elif filter_name == "Sepia":
+        # Kernel cho hiệu ứng Sepia
+        sepia_kernel = np.array([
+            [0.272, 0.534, 0.131],
+            [0.349, 0.686, 0.168],
+            [0.393, 0.769, 0.189]
+        ])
+        return cv2.transform(img, sepia_kernel)
+
+    elif filter_name == "Warm":
+        # Tăng sắc đỏ và vàng
+        increase_red = np.array([
+            [0.9, 0, 0],
+            [0, 1.0, 0],
+            [0, 0, 1.2]  # OpenCV dùng BGR, 1.2 là kênh R
+        ])
+        return cv2.transform(img, increase_red)
+
+    elif filter_name == "Cool":
+        # Tăng sắc xanh dương
+        increase_blue = np.array([
+            [1.2, 0, 0], # Kênh B
+            [0, 1.0, 0],
+            [0, 0, 0.9]
+        ])
+        return cv2.transform(img, increase_blue)
+
+    elif filter_name == "Vintage":
+        # Kết hợp Sepia nhẹ và giảm độ sáng
+        sepia = apply_filter(img, "Sepia")
+        return cv2.addWeighted(img, 0.5, sepia, 0.5, 0)
+
+    return img

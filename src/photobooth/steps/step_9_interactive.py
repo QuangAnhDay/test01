@@ -112,6 +112,40 @@ def create_interactive_capture_screen(app):
     """)
     app.btn_finish_interactive.clicked.connect(app.accept_and_print)
 
+    # --- [4] BỘ LỌC (FILTERS) ---
+    # Tạo một container mới cho Filters nằm trong control_layout (Dưới Camera Mini)
+    filter_widget = QWidget()
+    filter_layout = QHBoxLayout(filter_widget)
+    filter_layout.setContentsMargins(0, 0, 0, 0)
+    filter_layout.setSpacing(10)
+
+    filters = ["Original", "Grayscale", "Sepia", "Warm", "Cool", "Vintage"]
+    app.filter_buttons = {}
+
+    for f_name in filters:
+        btn = QPushButton(f_name)
+        btn.setCheckable(True)
+        btn.setFixedSize(90, 45)
+        btn.setStyleSheet("""
+            QPushButton {
+                background-color: white; color: #FF7E7E;
+                font-family: 'Arial'; font-size: 14px; font-weight: bold;
+                border-radius: 10px; border: 2px solid white;
+            }
+            QPushButton:checked {
+                background-color: #FF7E7E; color: white;
+            }
+        """)
+        if f_name == "Original":
+            btn.setChecked(True)
+        
+        btn.clicked.connect(lambda checked, name=f_name: app.change_filter(name))
+        filter_layout.addWidget(btn)
+        app.filter_buttons[f_name] = btn
+
+    # Chèn filter_widget vào control_layout, ngay dưới camera mini
+    control_layout.insertWidget(1, filter_widget)
+
     app.interactive_stack.addWidget(app.page_main)
 
     # ---------------------------------------------------------

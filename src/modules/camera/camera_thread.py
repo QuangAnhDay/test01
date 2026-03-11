@@ -13,6 +13,7 @@ class CameraThread(QThread):
     Hỗ trợ quay video ở luồng phụ.
     """
     frame_ready = pyqtSignal(QImage)
+    raw_frame_ready = pyqtSignal(object) # Signal gửi numpy array (OpenCV frame)
     error_occurred = pyqtSignal(str)
 
     def __init__(self, camera_index=0, width=1280, height=720, use_dshow=True, use_compat=False):
@@ -72,13 +73,16 @@ class CameraThread(QThread):
                             except Exception as ve:
                                 print(f"[THREAD CAMERA] Loi ghi video: {ve}")
 
-                    # Chuyển đổi sang QImage ngay tại đây để UI dùng luôn
+                    # 1. Phát tín hiệu raw frame cho các màn hình cần xử lý Filter (Step 9)
+                    self.raw_frame_ready.emit(frame.copy())
+
+                    # 2. Chuyển đổi sang QImage ngay tại đây để UI vùng khác dùng luôn
                     rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                     h, w, ch = rgb_image.shape
                     bytes_per_line = ch * w
                     qt_image = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
 
-                    # Phát tín hiệu báo có frame mới (copy cho chắc chắn lặp lại được ở các recipient khác nhau)
+                    # Phát tín hiệu báo có frame QImage
                     self.frame_ready.emit(qt_image.copy())
                     
                     # Điều tiết FPS (khoảng 30fps)

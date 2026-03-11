@@ -28,7 +28,7 @@ from PyQt5.QtGui import QPixmap, QImage, QFont
 
 from src.shared.types.models import load_config, FIRST_PHOTO_DELAY, PHOTOS_TO_TAKE
 from src.shared.utils.helpers import ensure_directories, convert_cv_qt, load_sample_photos, get_rounded_pixmap
-from src.modules.image_processing.processor import crop_to_aspect_wh
+from src.modules.image_processing.processor import crop_to_aspect_wh, apply_filter
 from src.modules.camera.camera_thread import CameraThread
 from src.photobooth.components.dialogs import DownloadSingleQRDialog
 from src.app import PhotoboothApp
@@ -46,6 +46,7 @@ class FreePhotobooth(PhotoboothApp):
         self.is_free_mode = True
         self.is_recording_video = False
         self.current_video_path = None
+        self.current_filter = "Original" # Filter mặc định
 
         # Đọc cấu hình camera
         self.camera_config = self._load_camera_config_file()
@@ -163,11 +164,27 @@ class FreePhotobooth(PhotoboothApp):
         self.switch_camera_recipient("INTERACTIVE_CAPTURE")
         super().start_interactive_shot()
 
+    def change_filter(self, filter_name):
+        """Thay đổi bộ lọc hiện tại và cập nhật trạng thái các nút UI."""
+        self.current_filter = filter_name
+        print(f"[FILTER] Changed to: {filter_name}")
+        
+        # Cập nhật trạng thái nút bấm (nếu có)
+        if hasattr(self, 'filter_buttons'):
+            for name, btn in self.filter_buttons.items():
+                btn.blockSignals(True)
+                btn.setChecked(name == filter_name)
+                btn.blockSignals(False)
+
     def take_one_photo(self):
-        """Override - Chụp ảnh từ Thread thay vì self.cap."""
+        """Override - Chụp ảnh từ Thread và áp dụng Filter."""
         if self.cam_thread and self.cam_thread.last_cv_frame is not None:
-            frame = self.cam_thread.last_cv_frame.copy()
-            # Xử lý tương tự app.py nhưng dùng frame từ thread
+            raw_frame = self.cam_thread.last_cv_frame.copy()
+            
+            # Áp dụng Filter trước khi lưu vào danh sách ảnh
+            frame = apply_filter(raw_frame, self.current_filter)
+            
+            frame = cv2.flip(frame, 1)
             self.interactive_photos.append(frame)
             self.current_slot_index += 1
             self.update_interactive_template_preview()
@@ -248,6 +265,11 @@ class FreePhotobooth(PhotoboothApp):
                 self.cam_thread.frame_ready.disconnect()
             except:
                 pass 
+            
+            try:
+                self.cam_thread.raw_frame_ready.disconnect()
+            except:
+                pass
                 
             # 3. Đăng ký lại dựa trên state mới
             if state == "START":
@@ -255,7 +277,8 @@ class FreePhotobooth(PhotoboothApp):
             elif state in ["CAPTURING", "WAITING_CAPTURE"]:
                 self.cam_thread.frame_ready.connect(self.on_frame_liveview)
             elif state == "INTERACTIVE_CAPTURE":
-                self.cam_thread.frame_ready.connect(self.on_frame_interactive)
+                # Ở Step 9, ta cần frame gốc để áp Filter trước khi hiển thị
+                self.cam_thread.raw_frame_ready.connect(self.on_frame_interactive)
             
             print(f"[CAMERA SERVER] Success: Recipient for {state} connected. (Rotation: {rot})")
         except Exception as e:
@@ -277,13 +300,20 @@ class FreePhotobooth(PhotoboothApp):
                 lbl.setVisible(True)
 
     def on_frame_liveview(self, qt_img):
-        """Feed cho màn hình LiveView (Step 3)."""
+        """Feed cho màn hình LiveView (Step 3) - Cần convert ngược về CV để áp filter (nếu muốn)."""
+        # Lưu ý: Luồng LiveView cũ dùng Pixmap trực tiếp, nếu muốn filter real-time ở đây
+        # ta nên sửa CameraThread để gửi frame CV hoặc áp filter tại đây.
+        # Ở bản này, ta sẽ áp dụng filter real-time chủ yếu cho Step 9.
         if hasattr(self, 'camera_label'):
             scaled = qt_img.scaled(self.camera_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            self.camera_label.setPixmap(QPixmap.fromImage(scaled))
+            self.camera_label.setPixmap(scaled)
 
-    def on_frame_interactive(self, qt_img):
-        """Feed cho màn hình Interactive (Step 9) - Đã có Crop để khớp slot."""
+    def on_frame_interactive(self, cv_frame):
+        """Feed cho màn hình Interactive (Step 9) - Đã nhận frame CV để áp filter real-time."""
+        # Chuyển đổi từ CV frame sang QImage sau khi áp filter
+        filtered_frame = apply_filter(cv_frame, self.current_filter)
+        qt_img = convert_cv_qt(filtered_frame)
+
         # Update Full Preview (Page 1)
         if hasattr(self, 'interactive_camera_label'):
             lbl_size = self.interactive_camera_label.size()
@@ -310,15 +340,14 @@ class FreePhotobooth(PhotoboothApp):
                         qt_img_display = qt_img.copy(0, offset, iw, new_h)
 
                 scaled_full = qt_img_display.scaled(lbl_size, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
-                self.interactive_camera_label.setPixmap(QPixmap.fromImage(scaled_full))
+                self.interactive_camera_label.setPixmap(scaled_full)
                 
                 # Update Mini Sidebar (Page 0)
                 if hasattr(self, 'interactive_camera_mini'):
                     mini_w = self.interactive_camera_mini.width() - 20
                     mini_h = self.interactive_camera_mini.height() - 20
                     if mini_w > 0 and mini_h > 0:
-                        mini_scaled_img = qt_img_display.scaled(mini_w, mini_h, Qt.IgnoreAspectRatio, Qt.FastTransformation)
-                        mini_pixmap = QPixmap.fromImage(mini_scaled_img)
+                        mini_pixmap = qt_img_display.scaled(mini_w, mini_h, Qt.IgnoreAspectRatio, Qt.FastTransformation)
                         mini_rounded = get_rounded_pixmap(mini_pixmap, radius=25)
                         self.interactive_camera_mini.setPixmap(mini_rounded)
 

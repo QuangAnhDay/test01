@@ -1,4 +1,5 @@
 Traceback (most recent call last):
-  File "d:\photobooth2\src\app_free.py", line 274, in on_frame_home
-    rounded_pixmap = get_rounded_pixmap(pixmap, radius=24, width=lbl.width(), height=lbl.height())
-TypeError: get_rounded_pixmap() got an unexpected keyword argument 'width'
+  File "d:\photobooth2\src\app_free.py", line 343, in on_frame_interactive
+    self.interactive_camera_label.setPixmap(QPixmap.fromImage(scaled_full))
+                                            ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+TypeError: fromImage(image: QImage, flags: Union[Qt.ImageConversionFlags, Qt.ImageConversionFlag] = Qt.AutoColor): argument 1 has unexpected type 'QPixmap'
