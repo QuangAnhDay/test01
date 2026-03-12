@@ -410,7 +410,7 @@ class FrameEditor(QMainWindow):
     def run_frame_gen(self):
         """Chạy script tạo file khung ảnh."""
         try:
-            from src.modules.image_processing.processor import generate_frame_templates
+            from src.services.image.template import generate_frame_templates
             generate_frame_templates()
             QMessageBox.information(self, "Thành công", "Đã tạo/cập nhật các file khung ảnh trong thư mục /templates")
         except Exception as e:

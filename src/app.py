@@ -60,7 +60,6 @@ from src.services.image.filters import apply_filter, get_available_filters
 from src.ui.dialogs.dialogs import DownloadQRDialog
 
 # Import step screens
-#from src.photobooth.steps.step_0_idle import create_idle_screen
 from src.ui.screens.steps.step_1_package import create_package_screen
 from src.ui.screens.steps.step_2_payment import create_payment_screen
 from src.ui.screens.steps.step_3_liveview import create_liveview_screen
@@ -1061,7 +1060,8 @@ class PhotoboothApp(QMainWindow):
     def update_interactive_template_preview(self):
         """Vẽ Preview Template với những ảnh đã chụp lấp vào slot."""
         from src.shared.types.models import get_layout_config
-        from src.modules.image_processing.processor import apply_template_overlay, crop_to_aspect_wh
+        from src.services.image.template import apply_template_overlay
+        from src.services.image.collage import crop_to_aspect_wh
         
         cfg = get_layout_config(self.layout_type)
         bw, bh = cfg.get("CANVAS_W", 1210), cfg.get("CANVAS_H", 1810)

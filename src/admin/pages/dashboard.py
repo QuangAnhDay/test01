@@ -262,7 +262,7 @@ class AdminSetup(QMainWindow):
         # Lấy danh sách layout hợp lệ cho nhóm custom để lọc template mồ côi
         valid_layout_names = None
         if group_name == "custom":
-            from src.modules.image_processing.processor import detect_layout_from_template
+            from src.services.image.template import detect_layout_from_template
             all_layouts = get_all_layouts()
             valid_layout_names = set()
             for lname, lcfg in all_layouts.items():

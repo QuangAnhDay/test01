@@ -8,7 +8,7 @@ from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QImage, QPixmap
 
 # Lấy code Layout Designer hiện có để tích hợp vào Tab
-from src.photobooth.steps.step_1_custom_editor import create_custom_editor_screen
+from src.ui.screens.steps.step_1_custom_editor import create_custom_editor_screen
 
 class AdminPanel(QWidget):
     """
