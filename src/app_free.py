@@ -93,16 +93,14 @@ class FreePhotobooth(PhotoboothApp):
         self.camera_handler.set_callback(self.on_frame_home)
 
     def open_camera_setup(self):
-        """Dừng camera handler trước khi mở setup."""
-        self.camera_handler.stop()
+        """Mở cửa sổ thiết lập Camera."""
         from src.admin.pages.settings import CameraSetupApp
-        self.camera_setup_window = CameraSetupApp()
+        self.camera_setup_window = CameraSetupApp(self.camera_handler)
         self.camera_setup_window.closeEvent = self._on_setup_closed
         self.camera_setup_window.show()
 
     def _on_setup_closed(self, event):
-        """Restart handler sau khi đóng setup."""
-        self.camera_handler.start()
+        """Callback khi đóng setup - Trả lại luồng cho màn hình Home."""
         self.camera_handler.set_callback(self.on_frame_home)
         event.accept()
 

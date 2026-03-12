@@ -42,7 +42,7 @@ def save_camera_config(config):
 class CameraSetupApp(QMainWindow):
     """Trang thiết lập và kiểm tra camera."""
 
-    def __init__(self):
+    def __init__(self, camera_handler=None):
         super().__init__()
         self.setWindowTitle("Thiết lập Camera - Photobooth")
         self.setFixedSize(900, 700)
@@ -53,6 +53,7 @@ class CameraSetupApp(QMainWindow):
         """)
 
         self.config = load_camera_config()
+        self.camera_handler = camera_handler # Sử dụng handler từ app chính
         self.cap = None
         self.consecutive_fails = 0
 
@@ -208,19 +209,21 @@ class CameraSetupApp(QMainWindow):
         # Disable các nút trong khi đang mở
         self.btn_use_dslr.setEnabled(False)
         self.combo_cam.setEnabled(False)
-        self.status_label.setText(f"Status: ⏳ Đang kết nối {index}...")
-        self.preview_label.setText(f"⏳ Đang mở {index}...\nVui lòng đợi (có thể mất vài giây)")
-
-        # Sử dụng luồng phụ để mở camera
-        from src.modules.camera.camera_thread import CameraThread
-        if self.cam_thread:
-            self.cam_thread.stop()
-            self.cam_thread.frame_ready.disconnect()
-
-        self.cam_thread = CameraThread(index, use_dshow=use_dshow, use_compat=use_compat)
-        self.cam_thread.frame_ready.connect(self.on_frame_from_thread)
-        self.cam_thread.error_occurred.connect(self.on_camera_error)
-        self.cam_thread.start()
+        if self.camera_handler:
+            # Ra lệnh cho handler trung tâm khởi động lại với cấu hình mới
+            # và đặt callback nhận ảnh duy nhất cho màn hình Setup này
+            self.camera_handler.set_callback(self.on_frame_from_thread)
+            self.camera_handler.restart_with_config(index, 1280, 720, use_dshow, use_compat)
+        else:
+            # Fallback nếu chạy độc lập
+            from src.services.camera.camera_thread import CameraThread
+            if hasattr(self, 'cam_thread') and self.cam_thread:
+                self.cam_thread.stop()
+            
+            self.cam_thread = CameraThread(index, width=1280, height=720, use_dshow=use_dshow, use_compat=use_compat)
+            self.cam_thread.frame_ready.connect(self.on_frame_from_thread)
+            self.cam_thread.error_occurred.connect(self.on_camera_error)
+            self.cam_thread.start()
 
     def on_frame_from_thread(self, q_img):
         """Callback khi có frame từ thread camera (Loại QImage)."""
@@ -281,8 +284,13 @@ class CameraSetupApp(QMainWindow):
         }
         save_camera_config(new_config)
         
-        # Stop camera thread before exit
-        if self.cam_thread:
+        # Dọn dẹp trước khi thoát
+        if self.camera_handler:
+            try:
+                self.camera_handler.frame_received.disconnect(self.on_frame_from_thread)
+            except:
+                pass
+        elif hasattr(self, 'cam_thread') and self.cam_thread:
             self.cam_thread.stop()
             
         QMessageBox.information(self, "Thành công",

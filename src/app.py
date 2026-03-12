@@ -171,7 +171,7 @@ class PhotoboothApp(QMainWindow):
         self.home_screen = HomeScreen(self)
         # Báo cho CameraView biết là sẽ dùng luồng capture bên ngoài (CameraHandler)
         if hasattr(self.home_screen, 'camera_view') and self.home_screen.camera_view:
-             self.home_screen.camera_view.camera_worker.external_cap = True
+             pass
             
         self.home_screen.start_clicked.connect(self.go_to_price_select)
         self.home_screen.open_admin.connect(lambda: self.stacked.setCurrentIndex(8))
@@ -1212,7 +1212,12 @@ class PhotoboothApp(QMainWindow):
         if hasattr(self, 'camera_setup_window') and self.camera_setup_window.isVisible():
             self.camera_setup_window.activateWindow()
         else:
-            self.camera_setup_window = CameraSetupApp()
+            self.camera_setup_window = CameraSetupApp(self.camera_handler)
+            # Khôi phục callback về màn hình chính khi đóng cửa sổ setup
+            self.camera_setup_window.closeEvent = lambda event: (
+                self.camera_handler.set_callback(self.on_frame_home),
+                event.accept()
+            )
             self.camera_setup_window.show()
 
     def open_admin_dashboard(self):

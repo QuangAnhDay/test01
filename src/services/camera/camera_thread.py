@@ -56,12 +56,10 @@ class CameraThread(QThread):
                         frame = cv2.rotate(frame, cv2.ROTATE_180)
                     elif getattr(self, 'rotation', 0) == 270:
                         frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
-
-                    # Mirror (Tùy chọn: Thường photobooth dùng mirror để người dùng dễ quan sát)
-                    # Nếu cam đã mirror sẵn thì bỏ dòng này.
+                    # Mirror (Lật gương toàn hệ thống tại trạm gốc)
                     frame = cv2.flip(frame, 1)
 
-                    # Lưu frame copy cho chụp ảnh (OpenCV format)
+                     # Lưu frame copy cho chụp ảnh (OpenCV format)
                     self.last_cv_frame = frame.copy()
 
                     # Ghi video nếu đang quay
