@@ -9,9 +9,9 @@ các hàm quản lý config, và các hằng số.
 import os
 import json
 import random
-
-from src.config import APP_CONFIG_PATH, CUSTOM_LAYOUTS_PATH
 import string
+import tempfile
+from src.config import APP_CONFIG_PATH, CUSTOM_LAYOUTS_PATH
 
 # ==========================================
 # CẤU HÌNH CƠ BẢN
@@ -25,7 +25,7 @@ FIRST_PHOTO_DELAY = 10   # Giây cho ảnh đầu tiên
 BETWEEN_PHOTO_DELAY = 1  # Giây giữa các ảnh
 PHOTOS_TO_TAKE = 10
 TEMPLATE_DIR = "templates"
-OUTPUT_DIR = "output"
+OUTPUT_DIR = os.path.join(tempfile.gettempdir(), "photobooth_output")
 SAMPLE_PHOTOS_DIR = "sample_photos"
 
 # ==========================================
@@ -140,6 +140,7 @@ LAYOUT_4x1 = {
     "PAD_LEFT": 53,
     "PAD_RIGHT": 53,
     "GAP": 32,
+    "group": "vertical",  # Phân loại để áp dụng quy tắc in số chẵn
 }
 
 # ==========================================

@@ -76,14 +76,15 @@ def overlay_images(background, foreground):
 
 
 def convert_cv_qt(cv_img):
-    """Chuyển đổi ảnh OpenCV sang QPixmap."""
+    """Chuyển đổi ảnh OpenCV sang QPixmap an toàn."""
     if cv_img is None:
         return QPixmap()
-    rgb_image = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
-    h, w, ch = rgb_image.shape
+    # Sử dụng BGRA cho ARGB32 để có hiệu năng tốt nhất trên Win
+    bgra_image = cv2.cvtColor(cv_img, cv2.COLOR_BGR2BGRA)
+    h, w, ch = bgra_image.shape
     bytes_per_line = ch * w
-    qt_format = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
-    return QPixmap.fromImage(qt_format)
+    qt_image = QImage(bgra_image.data, w, h, bytes_per_line, QImage.Format_ARGB32).copy()
+    return QPixmap.fromImage(qt_image)
 
 
 def crop_to_aspect(img, target_ratio=1.5):

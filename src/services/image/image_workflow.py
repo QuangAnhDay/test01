@@ -36,10 +36,8 @@ class ImageWorkflow(QObject):
             else:
                 final_img = collage
             
-            # 3. Lưu file
-            filename = f"photo_{generate_unique_code()}.jpg"
-            save_path = os.path.join(OUTPUT_DIR, filename)
-            cv2.imwrite(save_path, final_img)
+            # 3. Thông báo (Bỏ bước cv2.imwrite để không lưu file cục bộ)
+            save_path = "memory_buffer"  # Dummy path for compatibility
             
             self.processing_finished.emit(save_path, final_img)
             return save_path, final_img

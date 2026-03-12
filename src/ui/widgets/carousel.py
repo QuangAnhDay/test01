@@ -9,7 +9,7 @@ import cv2
 from PyQt5.QtWidgets import QWidget, QLabel
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QPixmap
-from src.shared.utils.helpers import convert_cv_qt
+from src.utils import convert_cv_qt
 
 
 class CarouselPhotoWidget(QWidget):

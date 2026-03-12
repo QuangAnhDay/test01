@@ -8,7 +8,7 @@ Màn hình chờ: Hiển thị carousel ảnh và nút bắt đầu.
 from PyQt5.QtWidgets import QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout
 from PyQt5.QtCore import Qt
 from src.photobooth.components.carousel import CarouselPhotoWidget
-from src.shared.utils.helpers import load_sample_photos
+from src.utils import load_sample_photos
 
 
 def create_idle_screen(app):

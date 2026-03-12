@@ -1,12 +1,15 @@
 # ==========================================
-# CLOUD UPLOAD - Upload ảnh lên Cloud
+# CLOUD UPLOAD - Upload ảnh lên Cloud (MEMORY VERSION)
 # ==========================================
 """
-Module upload ảnh/video lên Cloudinary,
-tạo landing page HTML cho khách tải về.
+Module upload ảnh trực tiếp từ bộ nhớ (numpy array) lên Cloudinary,
+giúp tối ưu hiệu năng và không cần ghi file tạm ra đĩa.
 """
 
 import os
+import io
+import cv2
+import time
 import cloudinary
 import cloudinary.uploader
 from PyQt5.QtCore import QThread, pyqtSignal
@@ -14,47 +17,61 @@ from src.shared.types.models import APP_CONFIG
 
 
 class CloudinaryUploadThread(QThread):
-    """Thread để upload ảnh lên Cloudinary mà không block UI."""
+    """Thread để upload ảnh lên Cloudinary từ bộ nhớ (numpy array)."""
     upload_success = pyqtSignal(str)
     upload_error = pyqtSignal(str)
 
-    def __init__(self, image_path):
+    def __init__(self, image_data):
         super().__init__()
-        self.image_path = image_path
+        self.image_data = image_data
 
     def run(self):
         try:
+            if self.image_data is None:
+                raise ValueError("Dữ liệu ảnh trống (None)")
+
+            # Encode ảnh sang buffer JPG
+            _, buffer = cv2.imencode('.jpg', self.image_data)
+            io_buf = io.BytesIO(buffer)
+            
             result = cloudinary.uploader.upload(
-                self.image_path,
+                io_buf,
                 folder="photobooth",
-                resource_type="auto"
+                resource_type="image"
             )
             self.upload_success.emit(result['secure_url'])
         except Exception as e:
+            print(f"[CLOUD ERROR] Upload error: {e}")
             self.upload_error.emit(str(e))
 
 
 class CloudinaryLandingPageThread(QThread):
-    """Thread upload ảnh, video và tạo 1 trang HTML landing page."""
+    """Thread upload ảnh từ bộ nhớ và tạo Landing Page Cloudinary."""
     upload_success = pyqtSignal(str)
     upload_error = pyqtSignal(str)
 
-    def __init__(self, image_path, video_path):
+    def __init__(self, image_data, video_path=None):
         super().__init__()
-        self.image_path = image_path
+        self.image_data = image_data
         self.video_path = video_path
 
     def run(self):
         try:
-            # 1. Upload Photo
+            if self.image_data is None:
+                raise ValueError("Dữ liệu ảnh trống (None)")
+
+            # 1. Upload Photo từ Memory
+            _, buffer = cv2.imencode('.jpg', self.image_data)
+            io_buf = io.BytesIO(buffer)
+            
             p_res = cloudinary.uploader.upload(
-                self.image_path,
+                io_buf,
                 folder="photobooth",
                 resource_type="image"
             )
             p_url = p_res['secure_url']
 
-            # 2. Upload Video
+            # 2. Upload Video (Nếu có)
             v_url = ""
             if self.video_path and os.path.exists(self.video_path):
                 v_res = cloudinary.uploader.upload(
@@ -117,24 +134,24 @@ class CloudinaryLandingPageThread(QThread):
             </html>
             """
 
-            temp_html = self.image_path + ".html"
-            with open(temp_html, "w", encoding="utf-8") as f:
-                f.write(html_content)
-
-            # 4. Upload HTML lên Cloudinary (dạng raw)
+            # 4. Upload HTML trực tiếp từ stream
+            html_buf = io.BytesIO(html_content.encode('utf-8'))
             h_res = cloudinary.uploader.upload(
-                temp_html,
+                html_buf,
                 folder="photobooth/pages",
                 resource_type="raw",
-                public_id=os.path.basename(temp_html)
+                public_id=f"page_{int(time.time())}.html"
             )
 
-            try:
-                os.remove(temp_html)
-            except:
-                pass
-
             self.upload_success.emit(h_res['secure_url'])
-
+            
+            # Tự động xóa file video nếu có (vì video vẫn đang dùng file cục bộ)
+            if self.video_path and os.path.exists(self.video_path):
+                try:
+                    os.remove(self.video_path)
+                except:
+                    pass
+                    
         except Exception as e:
+            print(f"[CLOUD ERROR] Landing Page error: {e}")
             self.upload_error.emit(str(e))

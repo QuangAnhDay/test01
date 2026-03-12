@@ -57,7 +57,8 @@ class CameraThread(QThread):
                     elif getattr(self, 'rotation', 0) == 270:
                         frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
-                    # Mirror
+                    # Mirror (Tùy chọn: Thường photobooth dùng mirror để người dùng dễ quan sát)
+                    # Nếu cam đã mirror sẵn thì bỏ dòng này.
                     frame = cv2.flip(frame, 1)
 
                     # Lưu frame copy cho chụp ảnh (OpenCV format)
@@ -73,13 +74,16 @@ class CameraThread(QThread):
                                 print(f"[THREAD CAMERA] Loi ghi video: {ve}")
 
                     # Chuyển đổi sang QImage ngay tại đây để UI dùng luôn
-                    rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                    h, w, ch = rgb_image.shape
+                    # Sử dụng Format_ARGB32 kết hợp với BGR2BGRA là cách nhanh và ổn định nhất trên Windows/Qt
+                    bgra_image = cv2.cvtColor(frame, cv2.COLOR_BGR2BGRA)
+                    h, w, ch = bgra_image.shape
                     bytes_per_line = ch * w
-                    qt_image = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
+                    
+                    # Tạo QImage và gọi .copy() để đảm bảo an toàn vùng nhớ
+                    qt_image = QImage(bgra_image.data, w, h, bytes_per_line, QImage.Format_ARGB32).copy()
 
-                    # Phát tín hiệu báo có frame mới (copy cho chắc chắn lặp lại được ở các recipient khác nhau)
-                    self.frame_ready.emit(qt_image.copy())
+                    # Phát tín hiệu báo có frame mới
+                    self.frame_ready.emit(qt_image)
                     
                     # Điều tiết FPS (khoảng 30fps)
                     self.msleep(30)

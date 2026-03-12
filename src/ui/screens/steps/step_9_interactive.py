@@ -12,7 +12,7 @@ import os
 import sys
 
 # === PATH FIX ===
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
@@ -20,7 +20,7 @@ from PyQt5.QtWidgets import (QWidget, QLabel, QPushButton, QVBoxLayout,
                              QHBoxLayout, QFrame, QGridLayout, QSizePolicy, QStackedWidget, QApplication)
 from PyQt5.QtCore import Qt, QTimer, QSize
 from PyQt5.QtGui import QImage, QPixmap, QFont
-from src.shared.utils.helpers import convert_cv_qt, overlay_images, get_rounded_pixmap
+from src.utils import convert_cv_qt, overlay_images, get_rounded_pixmap
 from src.modules.image_processing.processor import apply_template_overlay, crop_to_aspect_wh
 
 def create_interactive_capture_screen(app):

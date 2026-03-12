@@ -97,8 +97,8 @@ class CameraWorkerThread(QThread):
                 # Reset counter if read is successful
                 self._consecutive_failures = 0
 
-                # Lật ngang (mirror effect)
-                frame = cv2.flip(frame, 1)
+                # Lật ngang (đã được làm ở CameraThread nên ở đây bỏ đi để tránh double-flip)
+                # frame = cv2.flip(frame, 1)
 
                 # Resize và convert sang RGB (Trừ đi 10px mỗi chiều cho viền trắng 5px)
                 frame = cv2.resize(frame, (720, 460))
@@ -260,12 +260,7 @@ class CameraView(QFrame):
 
     def set_frame(self, q_img):
         """Đẩy frame từ bên ngoài vào (dùng cho kiến trúc tập trung CameraHandler)."""
-        if q_img and not q_img.isNull():
-            # Áp dụng bo góc nếu cần
-            if self.image_label:
-                self.image_label.setPixmap(QPixmap.fromImage(q_img).scaled(
-                    self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
-                ))
+        self.display_frame(q_img)
 
     def set_capture(self, cap):
         """Hỗ trợ backward compatibility."""
@@ -291,8 +286,7 @@ class CameraView(QFrame):
             return
 
         self.camera_worker.is_running = True
-        if not self.camera_worker.external_cap:
-            self.camera_worker.set_camera_index(self.current_camera_index)
+        self.camera_worker.set_camera_index(self.current_camera_index)
         self.camera_worker.start()
         self._is_running = True
 
@@ -321,15 +315,28 @@ class CameraView(QFrame):
         self.camera_changed.emit(camera_index)
 
     def display_frame(self, qt_image):
-        """Hiển thị frame lên giao diện"""
+        """Hiển thị frame lên giao diện với bo góc và tỷ lệ chuẩn."""
+        if qt_image is None:
+            return
+            
         if isinstance(qt_image, QImage):
-            pixmap = QPixmap.fromImage(qt_image)
+             if qt_image.isNull(): return
+             pixmap = QPixmap.fromImage(qt_image)
         elif isinstance(qt_image, QPixmap):
-            pixmap = qt_image
+             if qt_image.isNull(): return
+             pixmap = qt_image
         else:
             return
 
-        self.image_label.setPixmap(pixmap)
+        # Scale để lấp đầy label (thường là 760x..., hoặc mini camera)
+        lbl_size = self.image_label.size()
+        if not lbl_size.isEmpty():
+            scaled = pixmap.scaled(lbl_size, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+            from src.utils import get_rounded_pixmap
+            rounded = get_rounded_pixmap(scaled, radius=24)
+            self.image_label.setPixmap(rounded)
+        else:
+            self.image_label.setPixmap(pixmap)
 
     def _create_rounded_pixmap(self, pixmap, radius=24):
         """Tạo pixmap với các góc bo tròn"""

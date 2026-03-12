@@ -36,14 +36,8 @@ class PaymentHandler(QObject):
         self.current_transaction_code = generate_unique_code()
         
         # 1. Tạo URL VietQR
-        bank_bin = APP_CONFIG.get('bank_bin', '970422')
-        bank_acc = APP_CONFIG.get('bank_account', '')
-        acc_name = APP_CONFIG.get('account_name', 'PHOTOBOOTH')
         
-        qr_url = generate_vietqr_url(
-            bank_bin, bank_acc, acc_name, 
-            amount, self.current_transaction_code
-        )
+        qr_url = generate_vietqr_url(amount, self.current_transaction_code)
         
         # 2. Tải ảnh QR (thread phụ)
         self.qr_loader_thread = QRImageLoaderThread(qr_url)

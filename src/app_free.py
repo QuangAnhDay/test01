@@ -19,7 +19,7 @@ if _PROJECT_ROOT not in sys.path:
 
 from src.app import PhotoboothApp
 from src.shared.types.models import load_config
-from src.shared.utils.helpers import ensure_directories
+from src.utils import ensure_directories
 from src.ui.dialogs.dialogs import DownloadSingleQRDialog
 
 
@@ -39,6 +39,10 @@ class FreePhotobooth(PhotoboothApp):
         print("\n" + "=" * 60)
         print("FREE MODE REFACTORED - READY")
         print("=" * 60)
+        
+        # Bắt đầu camera ngay cho bản Free
+        self.camera_handler.start()
+        self.camera_handler.set_callback(self.on_frame_home)
 
     def go_to_price_select(self):
         """Chuyển thẳng đến chọn gói (Step 1)."""
@@ -58,27 +62,34 @@ class FreePhotobooth(PhotoboothApp):
         self.state = "INTERACTIVE_CAPTURE"
         self.stacked.setCurrentIndex(9)
         self.camera_handler.set_callback(self.on_frame_interactive, self.layout_type)
+        self.update_interactive_template_preview()
+        self.update_interactive_button_text()
+        self.start_video_recording()
 
     def accept_and_print(self):
-        """Hoàn tất - Hiển thị QR (không in)."""
-        self.template_timer.stop()
-        final_image = self.collage_image if self.collage_image is not None else self.merged_image
+        """Hoàn tất - Dừng video và bắt đầu xử lý ảnh cuối."""
+        print("[FREE] Ending session and processing image...")
+        self.stop_video_recording()
         
-        if final_image is None:
-            return
-
-        # Lưu file và hiện QR
-        save_path, _ = self.image_workflow.process_final_image(
-            self.captured_photos, self.layout_type, self.current_frame_path
+        if hasattr(self, 'template_timer'):
+            self.template_timer.stop()
+        
+        # Chọn danh sách ảnh (ưu tiên ảnh chụp tương tác)
+        interactive = getattr(self, 'interactive_photos', [])
+        captured = getattr(self, 'captured_photos', [])
+        photos_to_use = interactive if interactive else captured
+        
+        # Chỉ cần gọi workflow. Signal processing_finished sẽ kích hoạt on_processing_finished trong app.py
+        self.image_workflow.process_final_image(
+            photos_to_use, 
+            getattr(self, 'layout_type', "4x1"), 
+            getattr(self, 'selected_template_path', None)
         )
-        
-        if save_path:
-            dialog = DownloadSingleQRDialog(save_path, None, self)
-            dialog.exec_()
-            self.reset_all()
 
     def reset_all(self):
         super().reset_all()
+        # Restart camera cho màn hình Home
+        self.camera_handler.start()
         self.camera_handler.set_callback(self.on_frame_home)
 
     def open_camera_setup(self):

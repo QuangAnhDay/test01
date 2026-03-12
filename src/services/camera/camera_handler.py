@@ -60,6 +60,10 @@ class CameraHandler(QObject):
                     print(f"[CAMERA HANDLER] Rotation set to {rot} for {layout_type}")
             except Exception as e:
                 print(f"[CAMERA HANDLER] Error setting rotation: {e}")
+        else:
+            if self.thread:
+                self.thread.rotation = 0
+                print(f"[CAMERA HANDLER] Rotation reset to 0")
 
         self._current_callback = callback
         print(f"[CAMERA HANDLER] Callback changed to {callback.__name__ if callback else 'None'}")
@@ -79,3 +83,13 @@ class CameraHandler(QObject):
         self._use_dshow = dshow
         self._use_compat = compat
         self.start()
+
+    def start_recording(self, output_path, w=1280, h=720, fps=20.0):
+        """Proxy bắt đầu ghi video."""
+        if self.thread:
+            self.thread.start_recording(output_path, w, h, fps)
+
+    def stop_recording(self):
+        """Proxy dừng ghi video."""
+        if self.thread:
+            self.thread.stop_recording()
