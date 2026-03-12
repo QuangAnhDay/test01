@@ -22,7 +22,7 @@ class DownloadQRDialog(QDialog):
         self.image_data = image_data
         self.upload_thread = None
 
-        self.setWindowTitle("📱 Tải ảnh về điện thoại")
+        self.setWindowTitle("📱 Download photos to phone")
         self.setFixedSize(500, 600)
         self.setStyleSheet("""
             QDialog { background-color: #1a1a2e; border-radius: 20px; }
@@ -50,12 +50,12 @@ class DownloadQRDialog(QDialog):
         layout.setSpacing(20)
         layout.setContentsMargins(30, 30, 30, 30)
 
-        self.title_label = QLabel("☁️ ĐANG TẢI ẢNH LÊN CLOUD...")
+        self.title_label = QLabel("☁️ UPLOADING TO CLOUD...")
         self.title_label.setStyleSheet("font-size: 24px; font-weight: bold; color: #ffd700;")
         self.title_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.title_label)
 
-        self.status_label = QLabel("Vui lòng chờ trong giây lát...")
+        self.status_label = QLabel("Please wait a moment...")
         self.status_label.setStyleSheet("font-size: 16px; color: #a8dadc;")
         self.status_label.setAlignment(Qt.AlignCenter)
         self.status_label.setWordWrap(True)
@@ -82,7 +82,7 @@ class DownloadQRDialog(QDialog):
         self.instruction_label.setWordWrap(True)
         layout.addWidget(self.instruction_label)
 
-        self.btn_close = QPushButton("✅ ĐÓNG")
+        self.btn_close = QPushButton("✅ CLOSE")
         self.btn_close.setFixedSize(200, 60)
         self.btn_close.clicked.connect(self.accept)
         self.btn_close.hide()
@@ -96,9 +96,9 @@ class DownloadQRDialog(QDialog):
         self.upload_thread.start()
 
     def on_upload_success(self, url):
-        self.title_label.setText("📱 QUÉT MÃ ĐỂ TẢI ẢNH")
+        self.title_label.setText("📱 SCAN TO DOWNLOAD")
         self.title_label.setStyleSheet("font-size: 24px; font-weight: bold; color: #06d6a0;")
-        self.status_label.setText("Ảnh đã được tải lên thành công!")
+        self.status_label.setText("Photo uploaded successfully!")
 
         qr = qrcode.QRCode(version=1, box_size=10, border=2)
         qr.add_data(url)
@@ -116,13 +116,13 @@ class DownloadQRDialog(QDialog):
         self.qr_label.setStyleSheet("background-color: white;")
         self.qr_label.setPixmap(scaled)
 
-        self.instruction_label.setText("📲 Mở camera điện thoại để quét mã QR!")
+        self.instruction_label.setText("📲 Open your phone camera to scan!")
         self.instruction_label.setStyleSheet("font-size: 16px; color: #ffd700;")
         self.btn_close.show()
 
     def on_upload_error(self, error_msg):
-        self.title_label.setText("❌ LỖI TẢI ẢNH")
-        self.status_label.setText(f"Không thể tải ảnh. Lỗi: {error_msg}")
+        self.title_label.setText("❌ UPLOAD ERROR")
+        self.status_label.setText(f"Could not upload. Error: {error_msg}")
         self.qr_label.setText("❌")
         self.btn_close.show()
 
@@ -135,7 +135,7 @@ class DownloadSingleQRDialog(QDialog):
         self.image_data = image_data
         self.video_path = video_path
 
-        self.setWindowTitle("📱 Tải kỷ niệm của bạn")
+        self.setWindowTitle("📱 Download your memories")
         self.setFixedSize(500, 600)
         self.setStyleSheet("""
             QDialog { background-color: #1a1a2e; border-radius: 20px; }
@@ -162,7 +162,7 @@ class DownloadSingleQRDialog(QDialog):
         layout.setSpacing(20)
         layout.setContentsMargins(40, 40, 40, 40)
 
-        self.title_label = QLabel("☁️ ĐANG TẠO TRANG TẢI...")
+        self.title_label = QLabel("☁️ CREATING DOWNLOAD PAGE...")
         self.title_label.setStyleSheet("font-size: 22px; font-weight: bold; color: #ffd700;")
         self.title_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.title_label)
@@ -173,9 +173,9 @@ class DownloadSingleQRDialog(QDialog):
         self.qr_label.setStyleSheet("background-color: white; border-radius: 20px; font-size: 60px; color: #333;")
         layout.addWidget(self.qr_label, alignment=Qt.AlignCenter)
 
-        msg = "Đang xử lý ảnh, vui lòng đợi..."
+        msg = "Processing photos, please wait..."
         if self.video_path:
-            msg = "Đang xử lý ảnh và video, vui lòng đợi..."
+            msg = "Processing photos and video, please wait..."
             
         self.status_label = QLabel(msg)
         self.status_label.setWordWrap(True)
@@ -183,7 +183,7 @@ class DownloadSingleQRDialog(QDialog):
         self.status_label.setStyleSheet("color: #aaa; font-size: 14px;")
         layout.addWidget(self.status_label)
 
-        self.btn_close = QPushButton("✅ HOÀN TẤT")
+        self.btn_close = QPushButton("✅ DONE")
         self.btn_close.setFixedSize(200, 50)
         self.btn_close.clicked.connect(self.accept)
         self.btn_close.hide()
@@ -197,13 +197,13 @@ class DownloadSingleQRDialog(QDialog):
         self.thread.start()
 
     def on_upload_success(self, url):
-        self.title_label.setText("📱 QUÉT MÃ ĐỂ TẢI")
+        self.title_label.setText("📱 SCAN TO DOWNLOAD")
         self.title_label.setStyleSheet("font-size: 24px; font-weight: bold; color: #06d6a0;")
         
         if self.video_path:
-            self.status_label.setText("Trang kỷ niệm đã sẵn sàng! Có cả ảnh & video.")
+            self.status_label.setText("Memories ready! Includes photos & video.")
         else:
-            self.status_label.setText("Trang kỷ niệm đã sẵn sàng! Quét mã để lấy ảnh.")
+            self.status_label.setText("Memories ready! Scan to get photos.")
 
         qr = qrcode.QRCode(version=1, box_size=10, border=1)
         qr.add_data(url)
@@ -220,8 +220,8 @@ class DownloadSingleQRDialog(QDialog):
         self.btn_close.show()
 
     def on_upload_error(self, error_msg):
-        self.title_label.setText("❌ LỖI XỬ LÝ")
-        self.status_label.setText(f"Có lỗi xảy ra: {error_msg}")
+        self.title_label.setText("❌ ERROR")
+        self.status_label.setText(f"An error occurred: {error_msg}")
         self.btn_close.show()
 
 
@@ -272,7 +272,7 @@ class FinishDialog(QDialog):
         layout.setSpacing(25)
 
         # Tiêu đề
-        self.title_label = QLabel("KẾT THÚC RỒI !")
+        self.title_label = QLabel("FINISHED!")
         self.title_label.setAlignment(Qt.AlignCenter)
         self.title_label.setStyleSheet("""
             color: #FF7E7E; font-family: 'Cooper Black', 'Arial';
@@ -293,7 +293,7 @@ class FinishDialog(QDialog):
         
         layout.addWidget(self.qr_box, alignment=Qt.AlignCenter)
 
-        self.status_label = QLabel("Đang tạo mã QR tải ảnh...")
+        self.status_label = QLabel("Creating download QR code...")
         self.status_label.setAlignment(Qt.AlignCenter)
         self.status_label.setStyleSheet("color: #FF7E7E; font-family: 'Arial'; font-size: 18px; border: none;")
         layout.addWidget(self.status_label)
@@ -307,7 +307,7 @@ class FinishDialog(QDialog):
         # Phần chọn số lượng in
         print_layout = QHBoxLayout()
         
-        print_label = QLabel("SỐ LƯỢNG IN:")
+        print_label = QLabel("QUANTITY:")
         print_label.setStyleSheet("color: #FF7E7E; font-family: 'Cooper Black'; font-size: 24px; border: none;")
         print_layout.addWidget(print_label)
         
@@ -343,7 +343,7 @@ class FinishDialog(QDialog):
         layout.addLayout(print_layout)
 
         # Nút xác nhận cuối cùng
-        self.btn_finish = QPushButton("XÁC NHẬN & IN !")
+        self.btn_finish = QPushButton("CONFIRM & PRINT !")
         self.btn_finish.setStyleSheet("""
             QPushButton {
                 background-color: #FF7E7E; color: white;
@@ -382,7 +382,7 @@ class FinishDialog(QDialog):
         self.thread.start()
 
     def on_upload_success(self, url):
-        self.status_label.setText("✅ QUÉT ĐỂ TẢI ẢNH & VIDEO")
+        self.status_label.setText("✅ SCAN TO DOWNLOAD")
         qr = qrcode.QRCode(version=1, box_size=10, border=1)
         qr.add_data(url)
         qr.make(fit=True)
@@ -394,4 +394,4 @@ class FinishDialog(QDialog):
         self.qr_label.setPixmap(pix.scaled(300, 300, Qt.KeepAspectRatio, Qt.SmoothTransformation))
 
     def on_upload_error(self, error):
-        self.status_label.setText(f"❌ Lỗi: {error[:30]}")
+        self.status_label.setText(f"❌ Error: {error[:30]}")

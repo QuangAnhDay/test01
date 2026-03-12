@@ -261,12 +261,12 @@ class PhotoboothApp(QMainWindow):
         layout.setSpacing(20)
         layout.setContentsMargins(40, 40, 40, 40)
 
-        self.layout_title = QLabel("🖼️ CHỌN BỐ CỤC ẢNH")
+        self.layout_title = QLabel("🖼️ CHOOSE PHOTO LAYOUT")
         self.layout_title.setObjectName("TitleLabel")
         self.layout_title.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.layout_title)
 
-        self.layout_subtitle = QLabel("Hãy chọn cách sắp xếp các tấm ảnh của bạn")
+        self.layout_subtitle = QLabel("Select how your photos will be arranged")
         self.layout_subtitle.setObjectName("InfoLabel")
         self.layout_subtitle.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.layout_subtitle)
@@ -291,7 +291,7 @@ class PhotoboothApp(QMainWindow):
         layout.addWidget(scroll)
 
         # Nút Quay Lại (đặt ở dưới cùng)
-        self.btn_layout_back = QPushButton("⬅️ QUAY LẠI")
+        self.btn_layout_back = QPushButton("⬅️ GO BACK")
         self.btn_layout_back.setFixedSize(250, 70)
         self.btn_layout_back.setObjectName("OrangeBtn")
         self.btn_layout_back.clicked.connect(lambda: self.stacked.setCurrentIndex(1))
@@ -311,8 +311,8 @@ class PhotoboothApp(QMainWindow):
         self.templates = load_all_templates_for_group(group_filter)
         
         if not self.templates:
-            QMessageBox.information(self, "Thông báo", 
-                f"Hiện chưa có template nào trong nhóm {group_filter}.")
+            QMessageBox.information(self, "Notification", 
+                f"No templates found in group {group_filter}.")
             return
         
         # Chuyển thẳng sang màn hình chọn template (index 6)
@@ -444,7 +444,7 @@ class PhotoboothApp(QMainWindow):
         self.qr_label.setPixmap(scaled)
 
     def on_qr_load_error(self, error):
-        self.qr_label.setText(f"❌ Lỗi tải QR\n{error[:30]}...")
+        self.qr_label.setText(f"❌ Error loading QR\n{error[:30]}...")
         content = f"{APP_CONFIG.get('bank_account', '')} - {self.current_amount} - {self.current_transaction_code}"
         pixmap = generate_qr_code(content, 300)
         self.qr_label.setPixmap(pixmap)
@@ -459,14 +459,14 @@ class PhotoboothApp(QMainWindow):
         self.qr_label.setPixmap(scaled)
 
     def on_payment_received(self):
-        self.payment_status_label.setText("✅ ĐÃ NHẬN THANH TOÁN!")
+        self.payment_status_label.setText("✅ PAYMENT RECEIVED!")
         self.payment_status_label.setStyleSheet("font-size: 24px; color: #06d6a0; font-weight: bold;")
         if self.casso_thread and self.casso_thread.isRunning():
             self.casso_thread.stop()
         QTimer.singleShot(1500, self.go_to_capture_screen)
 
     def on_casso_error(self, error):
-        self.payment_status_label.setText(f"⚠️ Lỗi: {error[:50]}...")
+        self.payment_status_label.setText(f"⚠️ Error: {error[:50]}...")
         self.payment_status_label.setStyleSheet("font-size: 16px; color: #ff6b6b;")
 
     def cancel_payment_and_go_back(self):
@@ -478,8 +478,8 @@ class PhotoboothApp(QMainWindow):
         self.captured_photos = []
         self.selected_photo_indices = []
         self.stacked.setCurrentIndex(3)
-        self.photo_count_label.setText(f"Ảnh: 0/{PHOTOS_TO_TAKE}")
-        self.status_label.setText("Sẵn sàng?")
+        self.photo_count_label.setText(f"Photo: 0/{PHOTOS_TO_TAKE}")
+        self.status_label.setText("Ready?")
         self.countdown_label.setText("")
         self.btn_capture_start.show()
 
@@ -489,7 +489,7 @@ class PhotoboothApp(QMainWindow):
         self.btn_capture_start.hide()
         self.countdown_val = FIRST_PHOTO_DELAY
         self.photo_count_label.setText(f"Ảnh: 0/{PHOTOS_TO_TAKE}")
-        self.status_label.setText("Chuẩn bị tạo dáng!")
+        self.status_label.setText("Get ready to pose!")
         self.countdown_label.setText(str(self.countdown_val))
         self.countdown_timer.start(1000)
         self.start_video_recording()
@@ -522,11 +522,11 @@ class PhotoboothApp(QMainWindow):
             if photo_num < PHOTOS_TO_TAKE:
                 self.countdown_val = BETWEEN_PHOTO_DELAY
                 self.countdown_label.setText(str(self.countdown_val))
-                self.status_label.setText(f"Đã chụp ảnh {photo_num}! Tiếp tục...")
+                self.status_label.setText(f"Photo {photo_num} taken! Continuing...")
             else:
                 self.countdown_timer.stop()
                 self.countdown_label.setText("✓")
-                self.status_label.setText("Hoàn thành!")
+                self.status_label.setText("Finished!")
                 QTimer.singleShot(1000, self.go_to_photo_select)
 
     def go_to_photo_select(self):
@@ -534,7 +534,7 @@ class PhotoboothApp(QMainWindow):
         self.selected_photo_indices = []
 
         self.photo_select_title.setText(
-            f"CHỌN {self.selected_frame_count} ẢNH CHO KHUNG {self.selected_frame_count} ẢNH")
+            f"CHOOSE {self.selected_frame_count} PHOTOS FOR {self.selected_frame_count}-PHOTO FRAME")
 
         if self.selected_frame_count == 2:
             self.selection_time_left = 60
@@ -576,7 +576,7 @@ class PhotoboothApp(QMainWindow):
 
             layout.addWidget(btn)
 
-            lbl = QLabel(f"Ảnh {idx + 1}")
+            lbl = QLabel(f"Photo {idx + 1}")
             lbl.setAlignment(Qt.AlignCenter)
             lbl.setStyleSheet("font-size: 14px; font-weight: bold;")
             layout.addWidget(lbl)
@@ -599,15 +599,15 @@ class PhotoboothApp(QMainWindow):
     def update_timer_label(self):
         minutes = self.selection_time_left // 60
         seconds = self.selection_time_left % 60
-        self.lbl_selection_timer.setText(f"Thời gian còn lại: {minutes:02d}:{seconds:02d}")
+        self.lbl_selection_timer.setText(f"Time remaining: {minutes:02d}:{seconds:02d}")
         if self.selection_time_left < 10:
             self.lbl_selection_timer.setStyleSheet("font-size: 24px; color: #ff6b6b; font-weight: bold;")
         else:
             self.lbl_selection_timer.setStyleSheet("font-size: 24px; color: #ffd700; font-weight: bold;")
 
     def auto_confirm_selection(self):
-        QMessageBox.warning(self, "Hết giờ",
-                            "Đã hết thời gian chọn ảnh! Hệ thống sẽ tự động chọn ảnh cho bạn.")
+        QMessageBox.warning(self, "Time's up",
+                            "Time is up! The system will automatically select photos for you.")
         if len(self.selected_photo_indices) < self.selected_frame_count:
             needed = self.selected_frame_count - len(self.selected_photo_indices)
             for i in range(len(self.captured_photos)):
@@ -635,8 +635,8 @@ class PhotoboothApp(QMainWindow):
         else:
             if len(self.selected_photo_indices) >= self.selected_frame_count:
                 button.setChecked(False)
-                QMessageBox.information(self, "Thông báo",
-                                        f"Bạn chỉ được chọn {self.selected_frame_count} ảnh!")
+                QMessageBox.information(self, "Notification",
+                                        f"You can only select {self.selected_frame_count} photos!")
                 return
             self.selected_photo_indices.append(index)
             container.setStyleSheet("""
@@ -654,7 +654,7 @@ class PhotoboothApp(QMainWindow):
         self.selection_timer.stop()
         selected_imgs = [self.captured_photos[i] for i in sorted(self.selected_photo_indices)]
         if not selected_imgs:
-            QMessageBox.warning(self, "Lỗi", "Không có ảnh nào được chọn!")
+            QMessageBox.warning(self, "Error", "No photos selected!")
             return
 
         self.collage_image = create_collage(selected_imgs, self.layout_type)
@@ -735,13 +735,13 @@ class PhotoboothApp(QMainWindow):
         self.update_template_timer_label()
         if self.template_time_left <= 0:
             self.template_timer.stop()
-            QMessageBox.information(self, "Hết giờ", "Đã hết thời gian! Hệ thống sẽ tự động in ảnh.")
+            QMessageBox.information(self, "Time's up", "Time's up! The system will automatically print photos.")
             self.accept_and_print()
 
     def update_template_timer_label(self):
         minutes = self.template_time_left // 60
         seconds = self.template_time_left % 60
-        self.lbl_template_timer.setText(f"Thời gian còn lại: {minutes:02d}:{seconds:02d}")
+        self.lbl_template_timer.setText(f"Time remaining: {minutes:02d}:{seconds:02d}")
         if self.template_time_left < 10:
             self.lbl_template_timer.setStyleSheet("font-size: 24px; color: #ff6b6b; font-weight: bold;")
         else:
@@ -930,20 +930,20 @@ class PhotoboothApp(QMainWindow):
         self.current_amount = get_price_by_layout(self.layout_type)
 
         layout_name = {
-            "2x1": "2 Hàng x 1 Cột", "1x2": "1 Hàng x 2 Cột",
-            "4x1": "4 Hàng x 1 Cột", "2x2": "2 Hàng x 2 Cột"
+            "2x1": "2 Rows x 1 Column", "1x2": "1 Row x 2 Columns",
+            "4x1": "4 Rows x 1 Column", "2x2": "2 Rows x 2 Columns"
         }.get(self.layout_type, self.layout_type)
 
         self.selected_package_label.setText(
-            f"📦 {layout_name} - {self.selected_frame_count} ẢNH - {format_price(self.current_amount)}")
-        self.transaction_code_label.setText(f"Nội dung CK: {self.current_transaction_code}")
+            f"📦 {layout_name} - {self.selected_frame_count} PHOTOS - {format_price(self.current_amount)}")
+        self.transaction_code_label.setText(f"Payment Ref: {self.current_transaction_code}")
         self.bank_info_label.setText(
             f"{APP_CONFIG.get('bank_name', '')} - {APP_CONFIG.get('bank_account', '')}")
-        self.payment_status_label.setText("🔄 Đang chờ thanh toán...")
+        self.payment_status_label.setText("🔄 Waiting for payment...")
         self.payment_status_label.setStyleSheet("font-size: 18px; color: #ffd700;")
 
         # Tải QR Image (async)
-        self.qr_label.setText("⏳ Đang tải mã QR...")
+        self.qr_label.setText("⏳ Loading QR Code...")
         qr_url = generate_vietqr_url(self.current_amount, self.current_transaction_code)
         self.qr_loader_thread = QRImageLoaderThread(qr_url)
         self.qr_loader_thread.image_loaded.connect(self.on_qr_image_loaded)
@@ -1127,7 +1127,7 @@ class PhotoboothApp(QMainWindow):
     def on_processing_finished(self, save_path, final_img):
         """Callback khi ImageWorkflow hoàn tất."""
         if final_img is None:
-            QMessageBox.critical(self, "Lỗi", "Không thể xử lý ảnh cuối cùng. Vui lòng thử lại!")
+            QMessageBox.critical(self, "Error", "Could not process final image. Please try again!")
             self.reset_all()
             return
 
@@ -1158,7 +1158,7 @@ class PhotoboothApp(QMainWindow):
             # Nếu người dùng bấm XÁC NHẬN & IN
             print_count = dialog.print_count
             if print_count > 0:
-                print(f"[PRINTER] Đang chuẩn bị in {print_count} bản...")
+                print(f"[PRINTER] Preparing to print {print_count} copies...")
                 # 1. Lưu file tạm (vì máy in cần file vật lý)
                 temp_path = os.path.join(OUTPUT_DIR, "print_job_temp.png")
                 cv2.imwrite(temp_path, final_img)
@@ -1240,7 +1240,7 @@ class PhotoboothApp(QMainWindow):
 
         elif event.key() == Qt.Key_F2:
             # Mở trình thiết kế layout (chỉ dành cho Admin)
-            QMessageBox.information(self, "Admin Mode", "Đang mở trình thiết kế Bố cục (Layout Designer)...")
+            QMessageBox.information(self, "Admin Mode", "Opening Layout Designer...")
             self.stacked.setCurrentIndex(8)
             if hasattr(self, 'custom_editor_step'):
                 self.custom_editor_step.update_preview()
@@ -1280,7 +1280,7 @@ class PhotoboothApp(QMainWindow):
         try:
             # Mặc định digiCamControl chạy Webserver ở port 5513
             requests.get("http://127.0.0.1:5513/remote?code=2001", timeout=1)
-            print("[DSLR] Da gui lenh chụp thành công.")
+            print("[DSLR] Triggered capture successfully.")
         except Exception as e:
             print(f"[DSLR ERROR] Không thể gửi lệnh chụp: {e}")
 
@@ -1313,11 +1313,11 @@ def main():
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Information)
         msg.setWindowTitle("Cấu hình hệ thống")
-        msg.setText("Chào mừng! Hệ thống phát hiện bạn chưa cấu hình thông số Cloudinary.")
+        msg.setText("Welcome! The system detected that Cloudinary is not configured.")
         msg.setInformativeText(
-            "Vui lòng nhập 'Cloud Name', 'API Key' và 'API Secret' trong mục 'API KEYS & CLOUD' "
-            "để ứng dụng có thể upload và trả ảnh qua QR Code.\n\n"
-            "Sau khi LƯU, hãy đóng cửa sổ cấu hình để bắt đầu ứng dụng."
+            "Please enter 'Cloud Name', 'API Key', and 'API Secret' in 'API KEYS & CLOUD' "
+            "so the app can upload and return photos via QR Code.\n\n"
+            "After SAVING, close the settings window to start the app."
         )
         msg.setStandardButtons(QMessageBox.Ok)
         msg.exec_()
@@ -1335,7 +1335,7 @@ def main():
             print("[INFO] Cấu hình vẫn chưa hoàn thiện. Thoát ứng dụng.")
             return 0
         
-        print("[INFO] Cấu hình hợp lệ. Đang khởi động Photobooth...")
+        print("[INFO] Configuration valid. Starting Photobooth...")
 
     # 3. Khởi động ứng dụng chính
     font = QFont("Arial", 12)
@@ -1358,8 +1358,8 @@ def handle_exception(exc_type, exc_value, exc_traceback):
 
     msg = QMessageBox()
     msg.setIcon(QMessageBox.Critical)
-    msg.setWindowTitle("Lỗi Hệ Thống")
-    msg.setText("Ứng dụng gặp lỗi và cần khởi động lại.")
+    msg.setWindowTitle("System Error")
+    msg.setText("The application encountered an error and needs to restart.")
     msg.setInformativeText(str(exc_value))
     msg.setDetailedText(error_msg)
     msg.setStandardButtons(QMessageBox.Ok)

@@ -44,7 +44,7 @@ class CameraSetupApp(QMainWindow):
 
     def __init__(self, camera_handler=None):
         super().__init__()
-        self.setWindowTitle("Thiết lập Camera - Photobooth")
+        self.setWindowTitle("Camera Setup - Photobooth")
         self.setFixedSize(900, 700)
         self.setStyleSheet("""
             QMainWindow { background-color: #f0f2f5; }
@@ -69,47 +69,47 @@ class CameraSetupApp(QMainWindow):
         controls_layout = QVBoxLayout()
         layout.addLayout(controls_layout, 1)
 
-        group_select = QGroupBox("1. Chọn Camera")
+        group_select = QGroupBox("1. Select Camera")
         select_layout = QVBoxLayout(group_select)
 
         self.combo_cam = QComboBox()
         self.refresh_cameras()
         self.combo_cam.currentIndexChanged.connect(self.start_preview)
 
-        hint_label = QLabel("💡 Gợi ý:\nIndex 0: Thường là Cam Laptop\nIndex 1: Thường là Iriun/HDMI")
+        hint_label = QLabel("💡 Hint:\nIndex 0: Usually Laptop Cam\nIndex 1: Usually Iriun/HDMI")
         hint_label.setStyleSheet("color: #666; font-size: 13px;")
 
-        select_layout.addWidget(QLabel("Thiết bị nhận diện được:"))
+        select_layout.addWidget(QLabel("Detected devices:"))
         select_layout.addWidget(self.combo_cam)
         select_layout.addWidget(hint_label)
 
-        btn_refresh = QPushButton("Làm mới danh sách")
+        btn_refresh = QPushButton("Refresh list")
         btn_refresh.clicked.connect(self.refresh_cameras)
         select_layout.addWidget(btn_refresh)
 
         controls_layout.addWidget(group_select)
 
-        group_settings = QGroupBox("2. Cấu hình & Sửa lỗi")
+        group_settings = QGroupBox("2. Config & Troubleshooting")
         settings_layout = QVBoxLayout(group_settings)
 
-        self.check_dshow = QCheckBox("Sử dụng DirectShow (Khuyên dùng)")
+        self.check_dshow = QCheckBox("Use DirectShow (Recommended)")
         self.check_dshow.setChecked(self.config.get("use_dshow", True))
         self.check_dshow.stateChanged.connect(self.start_preview)
         settings_layout.addWidget(self.check_dshow)
 
-        self.check_compat = QCheckBox("Chế độ Tương thích (Sửa lỗi Cam Laptop bị đen)")
+        self.check_compat = QCheckBox("Compatibility Mode (Fix black Laptop Cam)")
         self.check_compat.setStyleSheet("color: #d9534f; font-weight: bold;")
         self.check_compat.stateChanged.connect(self.start_preview)
         settings_layout.addWidget(self.check_compat)
 
         self.combo_res = QComboBox()
         self.combo_res.addItems(["1280x960 (4:3)", "1280x720 (16:9)", "1920x1080 (FullHD)", "640x480 (SD)"])
-        settings_layout.addWidget(QLabel("Độ phân giải mong muốn:"))
+        settings_layout.addWidget(QLabel("Desired resolution:"))
         settings_layout.addWidget(self.combo_res)
 
         controls_layout.addWidget(group_settings)
         
-        group_dslr = QGroupBox("3. Chế độ DSLR (digiCamControl)")
+        group_dslr = QGroupBox("3. DSLR Mode (digiCamControl)")
         dslr_layout = QVBoxLayout(group_dslr)
         
         self.edit_mjpeg = QLineEdit()
@@ -118,16 +118,16 @@ class CameraSetupApp(QMainWindow):
         if current_idx.startswith("http"):
             self.edit_mjpeg.setText(current_idx)
             
-        dslr_layout.addWidget(QLabel("Địa chỉ MJPEG Stream:"))
+        dslr_layout.addWidget(QLabel("MJPEG Stream Address:"))
         dslr_layout.addWidget(self.edit_mjpeg)
         
-        self.btn_use_dslr = QPushButton("SỬ DỤNG DSLR")
+        self.btn_use_dslr = QPushButton("USE DSLR")
         self.btn_use_dslr.clicked.connect(self.use_dslr_mjpeg)
         dslr_layout.addWidget(self.btn_use_dslr)
         
         controls_layout.addWidget(group_dslr)
 
-        btn_save = QPushButton("LƯU CẤU HÌNH & KẾT THÚC")
+        btn_save = QPushButton("SAVE CONFIG & EXIT")
         btn_save.setStyleSheet("background-color: #28a745; color: white; height: 50px;")
         btn_save.clicked.connect(self.save_and_exit)
         controls_layout.addWidget(btn_save)
@@ -144,7 +144,7 @@ class CameraSetupApp(QMainWindow):
         self.preview_label.setFixedSize(560, 420)
         preview_layout.addWidget(self.preview_label)
 
-        self.status_label = QLabel("Status: Chào mừng")
+        self.status_label = QLabel("Status: Welcome")
         self.status_label.setStyleSheet("color: #333; font-weight: bold;")
         preview_layout.addWidget(self.status_label)
 
@@ -200,7 +200,7 @@ class CameraSetupApp(QMainWindow):
         index = url_input if url_input.startswith("http") else self.combo_cam.currentData()
 
         if index is None or (isinstance(index, int) and index < 0):
-            self.preview_label.setText("Chưa chọn camera")
+            self.preview_label.setText("No camera selected")
             return
 
         use_dshow = self.check_dshow.isChecked()
@@ -231,7 +231,7 @@ class CameraSetupApp(QMainWindow):
         if not self.combo_cam.isEnabled():
             self.combo_cam.setEnabled(True)
             self.btn_use_dslr.setEnabled(True)
-            self.status_label.setText("Status: ✅ Camera đang hoạt động")
+            self.status_label.setText("Status: ✅ Camera active")
 
         # Hiển thị lên UI (Signal đã là QImage và đã được lật/xoay sẵn trong thread)
         pixmap = QPixmap.fromImage(q_img).scaled(560, 420, Qt.KeepAspectRatio, Qt.SmoothTransformation)
@@ -241,8 +241,8 @@ class CameraSetupApp(QMainWindow):
         """Callback khi camera gặp lỗi."""
         self.combo_cam.setEnabled(True)
         self.btn_use_dslr.setEnabled(True)
-        self.status_label.setText(f"Status: ⚠️ Lỗi - {message}")
-        self.preview_label.setText(f"❌ LỖI KẾT NỐI\n{message}")
+        self.status_label.setText(f"Status: ⚠️ Error - {message}")
+        self.preview_label.setText(f"❌ CONNECTION ERROR\n{message}")
 
     def update_frame(self):
         # Hàm này không còn dùng nữa vì đã dùng CameraThread
@@ -251,14 +251,14 @@ class CameraSetupApp(QMainWindow):
     def use_dslr_mjpeg(self):
         url = self.edit_mjpeg.text().strip()
         if not url.startswith("http"):
-             QMessageBox.warning(self, "Lỗi", "Địa chỉ MJPEG phải bắt đầu bằng http://")
+             QMessageBox.warning(self, "Error", "MJPEG address must start with http://")
              return
              
         self.config["camera_index"] = url
         self.config["use_dshow"] = False
         save_camera_config(self.config)
         self.start_preview()
-        QMessageBox.information(self, "Thành công", f"Đã chuyển sang dùng DSLR:\n{url}")
+        QMessageBox.information(self, "Success", f"Switched to DSLR:\n{url}")
 
     def save_and_exit(self):
         res_text = self.combo_res.currentText()
@@ -293,8 +293,8 @@ class CameraSetupApp(QMainWindow):
         elif hasattr(self, 'cam_thread') and self.cam_thread:
             self.cam_thread.stop()
             
-        QMessageBox.information(self, "Thành công",
-                                "Đã lưu cấu hình camera!\nBây giờ bạn có thể chạy ứng dụng.")
+        QMessageBox.information(self, "Success",
+                                "Camera configuration saved!\nYou can now run the application.")
         self.close()
 
 

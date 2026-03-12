@@ -18,7 +18,7 @@ class AdminPanel(QWidget):
         super().__init__()
         self.app = app
         self.setWindowTitle("⚙️ PHOTOBOOTH ADMIN CENTER")
-        self.setFixedSize(1200, 800)
+        self.setFixedSize(1600, 950) # Tăng kích thước để xem layout và camera rõ hơn
         self.setStyleSheet("background-color: #1a1a2e; color: white;")
         
         self.layout = QVBoxLayout(self)
@@ -31,16 +31,16 @@ class AdminPanel(QWidget):
         
         # --- TAB 1: THIẾT KẾ LAYOUT (ORIGINAL) ---
         self.layout_design_tab = create_custom_editor_screen(app)
-        self.tabs.addTab(self.layout_design_tab, "🖼️ THIẾT KẾ BỐ CỤC (LAYOUT)")
+        self.tabs.addTab(self.layout_design_tab, "🖼️ LAYOUT DESIGN")
         
         # --- TAB 2: SETUP CAMERA (NEW) ---
         self.camera_setup_tab = self.create_camera_tab()
-        self.tabs.addTab(self.camera_setup_tab, "📸 CÀI ĐẶT CAMERA")
+        self.tabs.addTab(self.camera_setup_tab, "📸 CAMERA SETTINGS")
         
         self.layout.addWidget(self.tabs)
         
         # Nút Thoát Admin
-        self.btn_exit = QPushButton("❌ THOÁT ADMIN")
+        self.btn_exit = QPushButton("❌ EXIT ADMIN")
         self.btn_exit.setFixedSize(200, 50)
         self.btn_exit.setObjectName("OrangeBtn") # Dùng style chung nếu có
         self.btn_exit.clicked.connect(lambda: self.app.stacked.setCurrentIndex(0))
@@ -58,40 +58,40 @@ class AdminPanel(QWidget):
         form_widget.setStyleSheet("background-color: #16213e; border-radius: 15px; padding: 20px;")
         form_layout = QVBoxLayout(form_widget)
         
-        title = QLabel("CÀI ĐẶT CAMERA")
+        title = QLabel("CAMERA SETTINGS")
         title.setStyleSheet("font-size: 20px; font-weight: bold; color: #06d6a0;")
         form_layout.addWidget(title)
         form_layout.addSpacing(20)
         
         # Camera Index / URL
-        form_layout.addWidget(QLabel("Index (0,1,...) hoặc DSLR URL (MJPEG):"))
+        form_layout.addWidget(QLabel("Index (0,1,...) or DSLR URL (MJPEG):"))
         self.edit_cam_idx = QLineEdit()
         self.edit_cam_idx.setStyleSheet("background: #000; color: #fff; border: 1px solid #4361ee;")
         form_layout.addWidget(self.edit_cam_idx)
         
         # Resolution
         res_layout = QGridLayout()
-        res_layout.addWidget(QLabel("Chiều rộng (W):"), 0, 0)
+        res_layout.addWidget(QLabel("Width (W):"), 0, 0)
         self.spin_w = QSpinBox()
         self.spin_w.setRange(320, 3840)
         res_layout.addWidget(self.spin_w, 0, 1)
         
-        res_layout.addWidget(QLabel("Chiều cao (H):"), 1, 0)
+        res_layout.addWidget(QLabel("Height (H):"), 1, 0)
         self.spin_h = QSpinBox()
         self.spin_h.setRange(240, 2160)
         res_layout.addWidget(self.spin_h, 1, 1)
         form_layout.addLayout(res_layout)
         
         # Flags
-        self.check_dshow = QCheckBox("Bật DirectShow (Nhanh hơn trên Windows)")
-        self.check_compat = QCheckBox("Chế độ tương thích (Cố định 640x480 MJPG)")
+        self.check_dshow = QCheckBox("Enable DirectShow (Faster on Windows)")
+        self.check_compat = QCheckBox("Compatibility Mode (Fixed 640x480 MJPG)")
         form_layout.addWidget(self.check_dshow)
         form_layout.addWidget(self.check_compat)
         
         form_layout.addStretch()
         
         # Nút Action
-        btn_apply = QPushButton("🚀 ÁP DỤNG & LƯU")
+        btn_apply = QPushButton("🚀 APPLY & SAVE")
         btn_apply.setStyleSheet("background-color: #06d6a0; color: #000; height: 50px; font-weight: bold; border-radius: 10px;")
         btn_apply.clicked.connect(self.save_and_apply_camera)
         form_layout.addWidget(btn_apply)
@@ -101,7 +101,7 @@ class AdminPanel(QWidget):
         # -- Bên phải: Preview --
         preview_container = QVBoxLayout()
         preview_container.addWidget(QLabel("LIVE PREVIEW (ADMIN VIEW)"))
-        self.admin_cam_label = QLabel("Đang chờ khởi động...")
+        self.admin_cam_label = QLabel("Waiting for startup...")
         self.admin_cam_label.setAlignment(Qt.AlignCenter)
         self.admin_cam_label.setFixedSize(640, 480)
         self.admin_cam_label.setStyleSheet("background-color: #000; border: 2px solid #4361ee; border-radius: 10px;")
@@ -150,9 +150,9 @@ class AdminPanel(QWidget):
         # Gọi app.py để cập nhật nóng luồng camera
         if hasattr(self.app, 'switch_camera_live'):
             self.app.switch_camera_live(idx, cfg["width"], cfg["height"], self.check_dshow.isChecked(), cfg["use_compat"])
-            QMessageBox.information(self, "Thành công", "Đã lưu và cập nhật camera mới!")
+            QMessageBox.information(self, "Success", "New camera saved and updated!")
         else:
-            QMessageBox.warning(self, "Lưu ý", "Đã lưu cài đặt nhưng không thể cập nhật nóng camera. Hãy khởi động lại ứng dụng.")
+            QMessageBox.warning(self, "Note", "Settings saved but cannot update camera hot. Please restart the app.")
             
     def update_admin_preview(self, frame):
         """Hàm nhận frame từ CameraThread và hiển thị lên tab Admin."""

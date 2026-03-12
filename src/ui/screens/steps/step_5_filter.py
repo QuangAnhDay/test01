@@ -1,3 +1,11 @@
+import os
+import sys
+
+# === PATH FIX: Cho phép chạy trực tiếp ===
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
+
 # ==========================================
 # STEP 5 - FILTER (Placeholder)
 # ==========================================
@@ -16,9 +24,30 @@ def create_filter_screen(app):
     layout = QVBoxLayout(screen)
     layout.setAlignment(Qt.AlignCenter)
 
-    label = QLabel("🎨 Tính năng Filter/Sticker\n(Sẽ được phát triển trong phiên bản sau)")
+    label = QLabel("🎨 Filter/Sticker Feature\n(Coming soon in a future version)")
     label.setAlignment(Qt.AlignCenter)
     label.setStyleSheet("color: #a8dadc; font-size: 24px;")
     layout.addWidget(label)
 
     return screen
+
+# ==========================================
+# KHỐI TEST STANDALONE
+# ==========================================
+if __name__ == "__main__":
+    from PyQt5.QtWidgets import QApplication
+
+    # Giả lập đối tượng app
+    class MockApp:
+        pass
+
+    app_qt = QApplication(sys.argv)
+    
+    # Áp dụng STYLE cho app test
+    from src.ui.styles import GLOBAL_STYLESHEET
+    app_qt.setStyleSheet(GLOBAL_STYLESHEET)
+
+    mock_app = MockApp()
+    window = create_filter_screen(mock_app)
+    window.showFullScreen()
+    sys.exit(app_qt.exec_())

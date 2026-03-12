@@ -31,6 +31,7 @@ def create_interactive_capture_screen(app):
     screen = QWidget()
     screen.setObjectName("interactiveScreen")
     screen.setFixedSize(1920, 1080)
+    # Mau nen chu dao cua man hinh chup anh (Hong pastel dam)
     screen.setStyleSheet("background-color: #F2E3E5;") # Nền hồng pastel chuẩn
 
     # Sử dụng StackedWidget để chuyển giữa Preview và Full Camera
@@ -79,7 +80,10 @@ def create_interactive_capture_screen(app):
 
     btn_style_white = """
         QPushButton {
-            background-color: white; color: #FF7E7E;
+            /* Mau trang cho cac nut chuc nang (Chup anh, Chup lai) */
+            background-color: white; 
+            /* Mau chu nut (Hong) */
+            color: #FF7E7E;
             font-family: 'Cooper Black', 'Arial'; font-size: 28px; font-style: italic; font-weight: bold;
             border-radius: 20px; border: none; min-height: 90px;
         }
@@ -87,12 +91,12 @@ def create_interactive_capture_screen(app):
         QPushButton:disabled { background-color: #EEE; color: #BBB; }
     """
 
-    app.btn_capture_step = QPushButton("CHỤP ẢNH !")
+    app.btn_capture_step = QPushButton("TAKE PHOTO!")
     app.btn_capture_step.setStyleSheet(btn_style_white)
     app.btn_capture_step.clicked.connect(app.start_interactive_shot)
     control_layout.addWidget(app.btn_capture_step)
 
-    app.btn_retake_last = QPushButton("CHỤP LẠI")
+    app.btn_retake_last = QPushButton("RETAKE")
     app.btn_retake_last.setStyleSheet(btn_style_white)
     app.btn_retake_last.clicked.connect(app.retake_last_shot)
     control_layout.addWidget(app.btn_retake_last)
@@ -100,11 +104,14 @@ def create_interactive_capture_screen(app):
     control_layout.addStretch()
 
     # --- [3] NÚT "LẤY ẢNH !" (Nằm ngoài khung, đồng bộ với nút Confirm của Step 6) ---
-    app.btn_finish_interactive = QPushButton("LẤY ẢNH !", app.page_main)
+    app.btn_finish_interactive = QPushButton("GET PHOTOS!", app.page_main)
     app.btn_finish_interactive.setGeometry(1335, 920, 450, 110)
     app.btn_finish_interactive.setStyleSheet("""
         QPushButton {
-            background-color: #FF7E7E; color: white;
+            /* Mau nen nut GET PHOTOS (Mau hong dam) */
+            background-color: #FF7E7E; 
+            /* Mau chu trang */
+            color: white;
             font-family: 'Cooper Black', 'Arial'; font-size: 38px; font-style: italic; font-weight: bold;
             border-radius: 25px; border: 5px solid white;
         }
@@ -150,8 +157,15 @@ def create_interactive_capture_screen(app):
 # KHỐI TEST STANDALONE
 # ==========================================
 if __name__ == "__main__":
+    import sys
+    from PyQt5.QtWidgets import QApplication
+    
     app_qt = QApplication(sys.argv)
     
+    # Áp dụng STYLE cho app test
+    from src.ui.styles import GLOBAL_STYLESHEET
+    app_qt.setStyleSheet(GLOBAL_STYLESHEET)
+
     class DummyApp:
         def __init__(self):
             class MockStack:
@@ -162,6 +176,17 @@ if __name__ == "__main__":
             self.layout_type = "4x1"
             self.current_slot_index = 0
             self.interactive_photos = []
+            
+            # References needed by create_interactive_capture_screen
+            self.interactive_template_label = None
+            self.interactive_camera_mini = None
+            self.btn_capture_step = None
+            self.btn_retake_last = None
+            self.btn_finish_interactive = None
+            self.interactive_camera_label = None
+            self.interactive_countdown_label = None
+            self.interactive_flash_overlay = None
+
         def start_interactive_shot(self): print("Bắt đầu chụp!")
         def retake_last_shot(self): print("Chụp lại pô cuối!")
         def accept_and_print(self): print("Xác nhận in ảnh!")
@@ -170,4 +195,3 @@ if __name__ == "__main__":
     window = create_interactive_capture_screen(dummy)
     window.showFullScreen()
     sys.exit(app_qt.exec_())
-

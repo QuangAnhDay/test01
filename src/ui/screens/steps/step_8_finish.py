@@ -17,13 +17,15 @@ def create_finish_screen(app):
     screen = QWidget()
     screen.setObjectName("finishScreen")
     screen.setFixedSize(1920, 1080)
+    # Mau nen man hinh Hoan thanh (Hong pastel)
     screen.setStyleSheet("background-color: #F2E3E5;") # Nền hồng đặc trưng
 
     # --- [1] TIÊU ĐỀ ("XONG RỒI !") ---
-    title_box = QLabel("xong rồi !", screen)
+    title_box = QLabel("DONE!", screen)
     title_box.setAlignment(Qt.AlignCenter)
     title_box.setGeometry(685, 40, 550, 85) 
     title_box.setStyleSheet("""
+        /* Mau nen tieu de (Hong nhat) */
         background-color: #FADBDC; color: white;
         font-family: 'Cooper Black', 'Arial'; font-size: 36px; font-style: italic; font-weight: bold;
         border-radius: 25px; border: 5px solid white;
@@ -45,10 +47,11 @@ def create_finish_screen(app):
     preview_layout.addWidget(app.final_preview_label)
 
     # --- [3] NÚT XÁC NHẬN / IN ---
-    app.btn_accept = QPushButton("IN ẢNH !", screen)
+    app.btn_accept = QPushButton("PRINT PHOTO!", screen)
     app.btn_accept.setGeometry(685, 900, 550, 120)
     app.btn_accept.setStyleSheet("""
         QPushButton {
+            /* Mau nen nut IN ANH (Mau hồng cam) */
             background-color: #FF7E7E; color: white;
             font-family: 'Cooper Black', 'Arial'; font-size: 38px; font-style: italic; font-weight: bold;
             border-radius: 25px; border: 5px solid white;
@@ -71,6 +74,11 @@ if __name__ == "__main__":
             print("Xác nhận in ảnh!")
 
     dummy = DummyApp()
+    
+    # Áp dụng STYLE cho app test
+    from src.ui.styles import GLOBAL_STYLESHEET
+    app_qt.setStyleSheet(GLOBAL_STYLESHEET)
+
     window = create_finish_screen(dummy)
     window.showFullScreen()
     sys.exit(app_qt.exec_())

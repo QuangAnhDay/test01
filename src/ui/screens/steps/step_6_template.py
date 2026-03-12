@@ -1,3 +1,11 @@
+import os
+import sys
+
+# === PATH FIX: Cho phép chạy trực tiếp ===
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
+
 # ==========================================
 # STEP 6 - TEMPLATE (Chọn khung hình)
 # ==========================================
@@ -37,6 +45,7 @@ def create_template_screen(app):
     screen = QWidget()
     screen.setObjectName("templateScreen")
     screen.setFixedSize(1920, 1080)
+    # Mau nen chu dao cua man hinh chon Khung (Hong nhat)
     screen.setStyleSheet("background-color: #F2E3E5;") # Nền hồng nhạt toàn màn hình
     
     # --- [1] NÚT QUAY LẠI (Góc trên trái) ---
@@ -45,6 +54,7 @@ def create_template_screen(app):
     app.btn_template_back.setGeometry(40, 40, 160, 90) 
     app.btn_template_back.setStyleSheet("""
         QPushButton {
+            /* Mau nen nut quay lai (Hong nhat) */
             background-color: #FADBDC; color: white;
             font-size: 70px; font-weight: 300;
             border-radius: 30px; border: 5px solid white;
@@ -55,11 +65,12 @@ def create_template_screen(app):
         app.btn_template_back.clicked.connect(lambda: app.stacked.setCurrentIndex(1))
     
     # --- [2] TIÊU ĐỀ CHÍNH ("chọn khung bạn muốn") ---
-    title_box = QLabel("chọn khung bạn muốn", screen)
+    title_box = QLabel("choose your frame", screen)
     title_box.setAlignment(Qt.AlignCenter)
     # Tinh chỉnh vị trí: setGeometry(X, Y, Rộng, Cao)
     title_box.setGeometry(435, 40, 450, 85) 
     title_box.setStyleSheet("""
+        /* Mau nen thanh tieu de (Hong nhat) */
         background-color: #FADBDC; color: white;
         font-family: 'Cooper Black', 'Arial'; font-size: 28px; font-style: italic; font-weight: bold;
         border-radius: 25px;
@@ -82,19 +93,21 @@ def create_template_screen(app):
     filter_layout.setContentsMargins(5, 5, 60, 15) # Changed left margin from 60 to 20
     filter_layout.setSpacing(63)
 
-    app.btn_filter_3 = QPushButton("khung 3 ảnh")
-    app.btn_filter_4 = QPushButton("khung 4 ảnh")
-    app.btn_filter_all = QPushButton("tất cả khung") # Nút mới
+    app.btn_filter_3 = QPushButton("3 photos")
+    app.btn_filter_4 = QPushButton("4 photos")
+    app.btn_filter_all = QPushButton("all frames") # Nút mới
     
     for btn in [app.btn_filter_3, app.btn_filter_4, app.btn_filter_all]:
         btn.setFixedSize(375, 100)
         btn.setCheckable(True)
         btn.setStyleSheet("""
             QPushButton {
+                /* Mau trang cho cac nut loc */
                 background-color: white; color: black;
                 font-family: 'Cooper Black', 'Arial'; font-size: 26px; font-style: italic; font-weight: bold;
                 border-radius: 15px; border: none;
             }
+            /* Mau khi nut loc dang duoc chon */
             QPushButton:checked { background-color: #F2BFC1; color: white; }
         """)
         btn.clicked.connect(lambda checked, b=btn: [
@@ -151,11 +164,12 @@ def create_template_screen(app):
     preview_layout.addWidget(app.template_preview_label)
 
     # --- [8] NÚT CHỤP ẢNH (Góc dưới cùng bên phải) ---
-    app.btn_confirm_template = QPushButton("CHỤP ẢNH!", screen)
+    app.btn_confirm_template = QPushButton("CAPTURE!", screen)
     # Tinh chỉnh vị trí: setGeometry(X, Y, Rộng, Cao)
     app.btn_confirm_template.setGeometry(1335, 920, 450, 110) 
     app.btn_confirm_template.setStyleSheet("""
         QPushButton {
+            /* Mau nen nut CAPTURE (Hong nhat) */
             background-color: #FADBDC; color: white;
             font-family: 'Cooper Black', 'Arial'; font-size: 38px; font-style: italic; font-weight: bold;
             border-radius: 25px;
@@ -194,16 +208,8 @@ if __name__ == "__main__":
         dummy.template_btn_layout.addWidget(btn)
 
     # Áp dụng STYLE giống hệt App chính để xem cho chuẩn
-    app.setStyleSheet("""
-        QMainWindow { background-color: #F5EBEC; }
-        QPushButton {
-            background-color: #e94560; color: white; border: none;
-            border-radius: 15px; padding: 20px 40px; font-size: 22px;
-            font-weight: bold; font-family: 'Arial', 'Tahoma', sans-serif;
-            min-height: 60px;
-        }
-        QPushButton:hover { background-color: #ff6b6b; }
-    """)
+    from src.ui.styles import GLOBAL_STYLESHEET
+    app.setStyleSheet(GLOBAL_STYLESHEET)
     
     window.showFullScreen()
     sys.exit(app.exec_())

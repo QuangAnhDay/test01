@@ -55,9 +55,11 @@ class AdminSetup(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("🛠️ Photobooth - Hệ thống Quản trị")
-        self.resize(700, 900)
+        self.setWindowTitle("🛠️ Photobooth - Admin System")
+        self.resize(1100, 950) # Tăng kích thước cửa sổ cho dễ nhìn
+        self.editor_window = None # Để lưu cửa sổ Frame Editor
         self.setStyleSheet("""
+            /* Mau nen cua cua so Admin (Xam nhat) */
             QMainWindow { background-color: #f0f2f5; }
             QLabel { color: #333; font-size: 14px; font-weight: bold; }
             QLineEdit, QComboBox, QListWidget { 
@@ -68,6 +70,7 @@ class AdminSetup(QMainWindow):
                 padding: 8px;
                 font-size: 14px;
             }
+            /* Mau vien khi o nhap lieu duoc chon (Xanh duong) */
             QLineEdit:focus, QComboBox:focus { border-color: #4361ee; }
             QGroupBox { 
                 color: #2c3e50; 
@@ -78,6 +81,7 @@ class AdminSetup(QMainWindow):
                 padding-top: 15px;
                 background-color: white;
             }
+            /* Mau nen mac dinh cua cac nut bam Admin (Xanh duong) */
             QPushButton {
                 background-color: #4361ee;
                 color: white;
@@ -87,9 +91,12 @@ class AdminSetup(QMainWindow):
                 font-size: 14px;
                 font-weight: bold;
             }
+            /* Mau nut khi di chuot qua (Xanh nhat) */
             QPushButton:hover { background-color: #4cc9f0; }
+            /* Mau nut SAVE (Xanh la cay) */
             QPushButton#SaveBtn { background-color: #28a745; color: white; font-size: 18px; }
             QPushButton#SaveBtn:hover { background-color: #218838; }
+            /* Mau nut Editor (Cam) */
             QPushButton#EditorBtn { background-color: #f39c12; }
             QPushButton#EditorBtn:hover { background-color: #e67e22; }
         """)
@@ -113,26 +120,26 @@ class AdminSetup(QMainWindow):
         layout = QVBoxLayout(content_widget)
         layout.setContentsMargins(30, 20, 30, 30)
 
-        title = QLabel("CẤU HÌNH HỆ THỐNG PHOTOBOOTH")
+        title = QLabel("PHOTOBOOTH SYSTEM CONFIGURATION")
         title.setAlignment(Qt.AlignCenter)
         title.setStyleSheet("font-size: 22px; color: #333; margin-bottom: 10px;")
         layout.addWidget(title)
 
         # --- Quản lý Giá tiền ---
-        pricing_group = QGroupBox("CẤU HÌNH GIÁ TIỀN")
+        pricing_group = QGroupBox("PRICING CONFIGURATION")
         pricing_layout = QVBoxLayout(pricing_group)
         
-        self.price_vertical = self.create_input(pricing_layout, "Giá kiểu Dọc (4x1):", "Nhập giá tiền VNĐ")
-        self.price_custom = self.create_input(pricing_layout, "Giá kiểu Custom:", "Nhập giá tiền VNĐ")
+        self.price_vertical = self.create_input(pricing_layout, "Vertical Price (4x1):", "Enter price in USD/VND")
+        self.price_custom = self.create_input(pricing_layout, "Custom Price:", "Enter price in USD/VND")
         
         layout.addWidget(pricing_group)
 
         # --- Quản lý Template (Hình ảnh) ---
-        template_group = QGroupBox("QUẢN LÝ TEMPLATE (HÌNH ẢNH)")
+        template_group = QGroupBox("TEMPLATE MANAGEMENT (IMAGES)")
         template_layout = QVBoxLayout(template_group)
         
         h_sel_layout = QHBoxLayout()
-        h_sel_layout.addWidget(QLabel("Chọn Layout:"))
+        h_sel_layout.addWidget(QLabel("Select Layout:"))
         self.temp_layout_combo = QComboBox()
         self.temp_layout_combo.currentTextChanged.connect(self.load_template_files)
         h_sel_layout.addWidget(self.temp_layout_combo)
@@ -140,16 +147,16 @@ class AdminSetup(QMainWindow):
 
         from PyQt5.QtWidgets import QListWidget
         self.template_list = QListWidget()
-        self.template_list.setFixedHeight(200)
-        self.template_list.setStyleSheet("")
+        self.template_list.setMinimumHeight(350) # Tăng chiều cao danh sách ảnh
+        self.template_list.setStyleSheet("background-color: #ffffff; color: #333; border: 1px solid #ccc;")
         template_layout.addWidget(self.template_list)
 
         h_btns = QHBoxLayout()
-        self.btn_add_temp = QPushButton("➕ THÊM FILE ẢNH")
+        self.btn_add_temp = QPushButton("➕ ADD IMAGE FILE")
         self.btn_add_temp.setStyleSheet("background-color: #06d6a0; color: #1a1a2e;")
         self.btn_add_temp.clicked.connect(self.upload_template_file)
         
-        self.btn_del_temp = QPushButton("🗑️ XÓA FILE")
+        self.btn_del_temp = QPushButton("🗑️ DELETE FILE")
         self.btn_del_temp.setStyleSheet("background-color: #e94560;")
         self.btn_del_temp.clicked.connect(self.delete_template_file)
         
@@ -161,11 +168,11 @@ class AdminSetup(QMainWindow):
 
 
         # --- Ngân hàng ---
-        bank_group = QGroupBox("CẤU HÌNH THANH TOÁN (VIETQR)")
+        bank_group = QGroupBox("PAYMENT CONFIGURATION (VIETQR)")
         bank_layout = QVBoxLayout(bank_group)
 
         h_bank_layout = QHBoxLayout()
-        lbl_bank = QLabel("Ngân hàng:")
+        lbl_bank = QLabel("Bank:")
         lbl_bank.setFixedWidth(180)
         self.bank_combo = QComboBox()
         for bank in VIETNAM_BANKS:
@@ -174,22 +181,30 @@ class AdminSetup(QMainWindow):
         h_bank_layout.addWidget(self.bank_combo)
         bank_layout.addLayout(h_bank_layout)
 
-        self.bank_acc = self.create_input(bank_layout, "Số tài khoản:", "Nhập số tài khoản nhận tiền")
-        self.bank_name = self.create_input(bank_layout, "Tên chủ tài khoản:", "Nhập tên không dấu (VIET HOA)")
+        self.bank_acc = self.create_input(bank_layout, "Account Number:", "Enter receiving account number")
+        self.bank_name = self.create_input(bank_layout, "Account Holder Name:", "Enter name without accents (UPPERCASE)")
         layout.addWidget(bank_group)
 
         # --- API Keys ---
         api_group = QGroupBox("API KEYS & CLOUD")
         api_layout = QVBoxLayout(api_group)
 
-        self.casso_key = self.create_input(api_layout, "Casso API Key:", "Dùng để kiểm tra thanh toán")
-        self.cloud_name = self.create_input(api_layout, "Cloudinary Name:", "Tên cloud")
+        self.casso_key = self.create_input(api_layout, "Casso API Key:", "Used to verify payments")
+        self.cloud_name = self.create_input(api_layout, "Cloudinary Name:", "Cloud name")
         self.cloud_api_key = self.create_input(api_layout, "Cloudinary API Key:", "API Key")
         self.cloud_api_secret = self.create_input(api_layout, "Cloudinary API Secret:", "API Secret")
         layout.addWidget(api_group)
 
-        # --- Nút Lưu ---
-        self.btn_save = QPushButton("💾 LƯU TẤT CẢ CẤU HÌNH")
+        # --- Nút Mở Frame Editor (Nút vàng cam) ---
+        self.btn_editor = QPushButton("🎨 OPEN FRAME EDITOR (DESIGN LAYOUT)")
+        self.btn_editor.setObjectName("EditorBtn")
+        self.btn_editor.setFixedHeight(60)
+        self.btn_editor.clicked.connect(self.open_frame_editor)
+        layout.addWidget(self.btn_editor)
+        
+        layout.addSpacing(10)
+
+        self.btn_save = QPushButton("💾 SAVE ALL CONFIGURATIONS")
         self.btn_save.setObjectName("SaveBtn")
         self.btn_save.setFixedHeight(60)
         self.btn_save.clicked.connect(self.save_config)
@@ -241,15 +256,15 @@ class AdminSetup(QMainWindow):
 
     def handle_delete_layout(self, name):
         """Xử lý yêu cầu xóa layout từ admin."""
-        reply = QMessageBox.question(self, "Xác nhận", f"Bạn có chắc muốn xóa Layout '{name}' không?",
+        reply = QMessageBox.question(self, "Confirm", f"Are you sure you want to delete Layout '{name}'?",
                                    QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:
             from src.shared.types.models import delete_custom_layout
             if delete_custom_layout(name):
-                QMessageBox.information(self, "Thành công", f"Đã xóa layout {name}")
+                QMessageBox.information(self, "Success", f"Deleted layout {name}")
                 self.refresh_layout_list()
             else:
-                QMessageBox.warning(self, "Lỗi", "Không thể xóa layout này.")
+                QMessageBox.warning(self, "Error", "Could not delete this layout.")
 
 
     def load_template_files(self):
@@ -300,21 +315,17 @@ class AdminSetup(QMainWindow):
         # Xác định thư mục đích
         dest_dir = os.path.join(TEMPLATE_DIR, group_name)
         
-        files, _ = QFileDialog.getOpenFileNames(self, "Chọn file ảnh Template", "", "Ảnh (*.png *.jpg *.jpeg)")
+        files, _ = QFileDialog.getOpenFileNames(self, "Select Template Image Files", "", "Images (*.png *.jpg *.jpeg)")
         if files:
             os.makedirs(dest_dir, exist_ok=True)
             for f in files:
                 shutil.copy(f, dest_dir)
             self.load_template_files()
-            QMessageBox.information(self, "Thành công", f"Đã thêm {len(files)} file vào {group_name}")
+            QMessageBox.information(self, "Success", f"Added {len(files)} files to {group_name}")
 
     def delete_template_file(self):
         """Xóa file template đang chọn."""
         item = self.template_list.currentItem()
-        if not item: 
-            QMessageBox.warning(self, "Thông báo", "Vui lòng chọn một file để xóa.")
-            return
-        
         # Item có format: "dir_name/filename"
         item_text = item.text()
         if "/" in item_text:
@@ -323,16 +334,16 @@ class AdminSetup(QMainWindow):
             dir_name = self.temp_layout_combo.currentText()
             filename = item_text
             
-        reply = QMessageBox.question(self, "Xác nhận", f"Bạn có chắc muốn xóa file '{filename}' không?",
+        reply = QMessageBox.question(self, "Confirm", f"Are you sure you want to delete file '{filename}'?",
                                    QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:
             file_path = os.path.join(TEMPLATE_DIR, dir_name, filename)
             try:
                 os.remove(file_path)
                 self.load_template_files()
-                QMessageBox.information(self, "Thành công", f"Đã xóa file {filename}")
+                QMessageBox.information(self, "Success", f"Deleted file {filename}")
             except Exception as e:
-                QMessageBox.critical(self, "Lỗi", f"Không thể xóa file: {e}")
+                QMessageBox.critical(self, "Error", f"Could not delete file: {e}")
 
     def load_current_config(self):
         if not os.path.exists(CONFIG_FILE):
@@ -362,12 +373,18 @@ class AdminSetup(QMainWindow):
         except Exception as e:
             print(f"Lỗi load config: {e}")
 
+    def open_frame_editor(self):
+        """Mở công cụ thiết kế khung ảnh."""
+        from src.admin.components.frame_editor import FrameEditor
+        self.editor_window = FrameEditor()
+        self.editor_window.show()
+        
     def save_config(self):
         try:
             pv = int(self.price_vertical.text().strip() or 0)
             pc = int(self.price_custom.text().strip() or 0)
         except ValueError:
-            QMessageBox.critical(self, "Lỗi", "Giá tiền phải là số nguyên!")
+            QMessageBox.critical(self, "Error", "Price must be an integer!")
             return
 
         config_data = {
@@ -390,10 +407,10 @@ class AdminSetup(QMainWindow):
         try:
             with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
                 json.dump(config_data, f, indent=4, ensure_ascii=False)
-            QMessageBox.information(self, "Thành công", "Đã lưu cấu hình vào config.json!")
+            QMessageBox.information(self, "Success", "Configuration saved to config.json!")
             load_config()
         except Exception as e:
-            QMessageBox.critical(self, "Lỗi", f"Không thể lưu file: {e}")
+            QMessageBox.critical(self, "Error", f"Could not save file: {e}")
 
 
 if __name__ == "__main__":

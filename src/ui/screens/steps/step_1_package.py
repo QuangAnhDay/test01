@@ -1,3 +1,11 @@
+import os
+import sys
+
+# === PATH FIX: Cho phép chạy trực tiếp ===
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
+
 # ==========================================
 # STEP 1 - PACKAGE (Chọn gói combo/layout)
 # ==========================================
@@ -9,7 +17,6 @@ from PyQt5.QtWidgets import (QWidget, QLabel, QPushButton, QVBoxLayout,
                              QHBoxLayout, QFrame, QSizePolicy)
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QPixmap, QIcon
-import os
 from src.shared.types.models import format_price, get_price_by_layout
 
 def create_package_screen(app):
@@ -32,7 +39,9 @@ def create_package_screen(app):
     # Styles
     price_btn_style = """
         QPushButton {
+            /* Mau nen nut gia tien (Ma do cam) */
             background-color: #F15252; 
+            /* Mau chu nut gia tien */
             color: white; 
             border: none;
             border-radius: 15px; 
@@ -43,9 +52,11 @@ def create_package_screen(app):
             font-family: 'Cooper Black', 'Segoe UI', Arial, sans-serif;
         }
         QPushButton:hover {
+            /* Mau nut khi di chuot qua */
             background-color: #FF6B6B;
         }
         QPushButton:pressed {
+            /* Mau nut khi nhan giu */
             background-color: #D33E42;
         }
     """
@@ -80,6 +91,7 @@ def create_package_screen(app):
     # LỰA CHỌN 1: DẠNG DỌC (60.000 VND)
     # ==========================================
     frame_1 = QFrame()
+    # Mau nen khung bao phay (Trang trong suot)
     frame_1.setStyleSheet("background-color: rgba(255,255,255, 0.4); border-radius: 20px;")
     layout_1 = QVBoxLayout(frame_1)
     layout_1.setContentsMargins(30, 40, 30, 40)
@@ -99,7 +111,7 @@ def create_package_screen(app):
         btn_img_1.setFixedSize(450, 450)
     else:
         # Placeholder nếu chưa có ảnh
-        btn_img_1.setText("Chưa có ảnh (package_1.png)")
+        btn_img_1.setText("No image (package_1.png)")
         btn_img_1.setFixedSize(450, 450)
         btn_img_1.setStyleSheet("background-color: #d1d8e0; border-radius: 20px; color: black; font-size: 20px;")
 
@@ -123,6 +135,7 @@ def create_package_screen(app):
     # LỰA CHỌN 2: DẠNG CUSTOM (90.000 VND)
     # ==========================================
     frame_2 = QFrame()
+    # Mau nen khung bao phay Custom (Trang trong suot)
     frame_2.setStyleSheet("background-color: rgba(255,255,255, 0.4); border-radius: 20px;")
     layout_2 = QVBoxLayout(frame_2)
     layout_2.setContentsMargins(30, 40, 30, 40)
@@ -141,7 +154,7 @@ def create_package_screen(app):
         btn_img_2.setIconSize(QSize(450, 450))
         btn_img_2.setFixedSize(450, 450)
     else:
-        btn_img_2.setText("Chưa có ảnh (package_2.png)")
+        btn_img_2.setText("No image (package_2.png)")
         btn_img_2.setFixedSize(450, 450)
         btn_img_2.setStyleSheet("background-color: #d1d8e0; border-radius: 20px; color: black; font-size: 20px;")
 
@@ -168,6 +181,30 @@ def create_package_screen(app):
     app.btn_vert_layout = btn_img_1
     app.btn_cust_layout = btn_img_2
 
-
-
     return screen
+
+# ==========================================
+# KHỐI TEST STANDALONE
+# ==========================================
+if __name__ == "__main__":
+    from PyQt5.QtWidgets import QApplication
+
+    # Giả lập đối tượng app
+    class MockApp:
+        def __init__(self):
+            self.btn_vert_layout = None
+            self.btn_cust_layout = None
+            
+        def go_to_custom_layout_select(self, group):
+            print(f"Chuyển đến chọn layout cho nhóm: {group}")
+
+    app_qt = QApplication(sys.argv)
+    
+    # Áp dụng STYLE cho app test
+    from src.ui.styles import GLOBAL_STYLESHEET
+    app_qt.setStyleSheet(GLOBAL_STYLESHEET)
+
+    mock_app = MockApp()
+    window = create_package_screen(mock_app)
+    window.showFullScreen()
+    sys.exit(app_qt.exec_())

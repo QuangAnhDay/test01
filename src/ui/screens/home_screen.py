@@ -54,6 +54,7 @@ class HomeScreen(QWidget):
         left_widget.setMinimumWidth(820)
         left_widget.setStyleSheet("""
             QFrame {
+                /* Mau nen cua khung Masonry ben trai (Mau trang) */
                 background-color: #FFFFFF;
                 border-radius: 24px;
             }
@@ -96,7 +97,9 @@ class HomeScreen(QWidget):
         start_button.clicked.connect(self.on_start_clicked)
         start_button.setStyleSheet("""
             QPushButton {
+                /* Mau nen nut START (Hong nhat) */
                 background-color: #F1C4C5;
+                /* Mau chu nut START (Do dam) */
                 color: #D33E42;
                 border: none;
                 border-radius: 24px;
@@ -104,9 +107,11 @@ class HomeScreen(QWidget):
                 font-size: 64px;
             }
             QPushButton:hover {
+                /* Mau nut khi di chuot qua */
                 background-color: #F3CFD1;
             }
             QPushButton:pressed {
+                /* Mau nut khi nhan xuong */
                 background-color: #EAB9BC;
             }
         """)
@@ -190,12 +195,14 @@ class HomeScreen(QWidget):
         """Áp dụng style toàn cục cho màn hình"""
         self.setStyleSheet("""
             HomeScreen {
+                /* Mau nen tong the cua Man hinh chinh (Hong tim nhat) */
                 background-color: #E9E1E3;
             }
             QLabel {
                 font-family: 'Cooper Black', 'Segoe UI', Arial;
             }
             QFrame#contentFrame {
+                /* Mau nen cua khung noi dung chinh */
                 background-color: #E9E1E3;
                 border-radius: 24px;
             }

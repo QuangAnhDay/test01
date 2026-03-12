@@ -130,30 +130,30 @@ def create_custom_editor_screen(app):
 
     # --- TOP BAR ---
     top_bar = QHBoxLayout()
-    title = QLabel("🛠️ ADMIN: THIẾT KẾ BỐ CỤC (LAYOUT) MỚI")
+    title = QLabel("🛠️ ADMIN: DESIGN NEW LAYOUT")
     title.setObjectName("TitleLabel")
     title.setStyleSheet("font-family: 'Cooper Black'; font-size: 28px; color: #ffd700;")
     top_bar.addWidget(title)
     top_bar.addStretch()
     
-    btn_add = QPushButton("➕ THÊM Ô ẢNH")
-    btn_add.setStyleSheet("background-color: #4361ee; padding: 10px 20px; border-radius: 10px;")
+    btn_add = QPushButton("➕ ADD SLOT")
+    btn_add.setStyleSheet("background-color: #FFFFFF; padding: 10px 20px; border-radius: 10px;")
     btn_add.clicked.connect(lambda: app.custom_editor_step.add_slot())
     top_bar.addWidget(btn_add)
     
-    btn_clear = QPushButton("🗑️ XÓA HẾT")
+    btn_clear = QPushButton("🗑️ CLEAR ALL")
     btn_clear.setStyleSheet("background-color: #e94560; padding: 10px 20px; border-radius: 10px; margin-left:10px;")
     btn_clear.clicked.connect(lambda: app.custom_editor_step.clear_slots())
     top_bar.addWidget(btn_clear)
 
     # Nút Xoay màn hình / camera
-    btn_rotate = QPushButton("🔄 XOAY 90°")
+    btn_rotate = QPushButton("🔄 ROTATE 90°")
     btn_rotate.setStyleSheet("background-color: #fb8500; padding: 10px 20px; border-radius: 10px; margin-left:10px; font-weight: bold;")
     btn_rotate.clicked.connect(lambda: app.custom_editor_step.toggle_rotation())
     top_bar.addWidget(btn_rotate)
 
     # Nút bật/tắt lưới căn chỉnh
-    btn_grid = QPushButton("📐 LƯỚI")
+    btn_grid = QPushButton("📐 GRID")
     btn_grid.setCheckable(True)
     btn_grid.setChecked(True)
     btn_grid.setStyleSheet(
@@ -171,8 +171,8 @@ def create_custom_editor_screen(app):
     
     # Left Side: Admin Controls with ScrollArea
     scroll_area = QFrame()
-    scroll_area.setFixedWidth(350)
-    scroll_area.setStyleSheet("background-color: #16213e; border-radius: 20px;")
+    scroll_area.setFixedWidth(400) # Tăng nhẹ chiều rộng sidebar
+    scroll_area.setStyleSheet("background-color: #FFFFFF; border-radius: 20px;")
     scroll_layout = QVBoxLayout(scroll_area)
     scroll_layout.setContentsMargins(0, 0, 0, 0)
 
@@ -187,7 +187,7 @@ def create_custom_editor_screen(app):
     ctrl_layout.setContentsMargins(15, 15, 15, 15)
     
     ctrl_layout.addSpacing(20)
-    lbl_1 = QLabel("1. TÊN LAYOUT:")
+    lbl_1 = QLabel("1. LAYOUT NAME:")
     lbl_1.setStyleSheet("color: #ffd700; font-weight: bold; font-size: 14px;")
     ctrl_layout.addWidget(lbl_1)
     
@@ -196,19 +196,19 @@ def create_custom_editor_screen(app):
     ctrl_layout.addWidget(app.admin_layout_name)
     
     ctrl_layout.addSpacing(15)
-    lbl_2 = QLabel("2. PHÂN LOẠI NHÓM:")
+    lbl_2 = QLabel("2. CATEGORY:")
     lbl_2.setStyleSheet("color: #ffd700; font-weight: bold; font-size: 14px;")
     ctrl_layout.addWidget(lbl_2)
     
     app.admin_layout_group = QComboBox()
-    app.admin_layout_group.addItem("🎞️ Dạng Thẻ (Dọc) — 600×1800", "vertical")
-    app.admin_layout_group.addItem("🎨 Khung Tùy Biến — 1210×1810", "custom")
+    app.admin_layout_group.addItem("🎞️ Strip (Vertical) — 600×1800", "vertical")
+    app.admin_layout_group.addItem("🎨 Custom Frame — 1210×1810", "custom")
     app.admin_layout_group.setStyleSheet("background: #1a1a2e; color: #fff; padding: 10px; border: 1px solid #4361ee;")
     ctrl_layout.addWidget(app.admin_layout_group)
 
     # Hiển thị kích thước canvas hiện tại (chỉ đọc)
     ctrl_layout.addSpacing(20)
-    lbl_3 = QLabel("3. KÍCH THƯỚC KHUNG (CỐ ĐỊNH):")
+    lbl_3 = QLabel("3. CANVAS SIZE (FIXED):")
     lbl_3.setStyleSheet("color: #ffd700; font-weight: bold; font-size: 14px;")
     ctrl_layout.addWidget(lbl_3)
 
@@ -220,23 +220,23 @@ def create_custom_editor_screen(app):
     )
     ctrl_layout.addWidget(app.admin_canvas_size_label)
 
-    lbl_fixed_note = QLabel("⚠️ Kích thước canvas được đặt cố định\ntheo loại khung để thống nhất với máy in.")
+    lbl_fixed_note = QLabel("⚠️ Canvas size is fixed based on category\nto ensure compatibility with the printer.")
     lbl_fixed_note.setStyleSheet("color: #ff6b6b; font-size: 11px; font-style: italic;")
     lbl_fixed_note.setWordWrap(True)
     ctrl_layout.addWidget(lbl_fixed_note)
     
     ctrl_layout.addSpacing(20)
     lbl_note = QLabel(
-        "💡 Ghi chú:\n"
-        "- Chuột trái: Di chuyển ô\n"
-        "- Kéo góc trắng: Đổi cỡ (giữ 4:3)\n"
-        "- Nút 📐: Bật/tắt lưới căn chỉnh"
+        "💡 Note:\n"
+        "- Left click: Move slot\n"
+        "- Drag white corner: Resize (keep 4:3)\n"
+        "- Button 📐: Toggle grid"
     )
     lbl_note.setStyleSheet("color: #a8dadc; font-size: 12px; font-style: italic;")
     ctrl_layout.addWidget(lbl_note)
 
     # Label hiển thị thông tin ô đang chọn
-    app.admin_slot_info_label = QLabel("Chưa chọn ô nào")
+    app.admin_slot_info_label = QLabel("No slot selected")
     app.admin_slot_info_label.setAlignment(Qt.AlignCenter)
     app.admin_slot_info_label.setStyleSheet(
         "color: #ffd700; font-size: 12px; "
@@ -246,7 +246,7 @@ def create_custom_editor_screen(app):
     ctrl_layout.addWidget(app.admin_slot_info_label)
 
     # --- Bảng điều khiển tinh chỉnh Pixel ---
-    precision_group = QGroupBox("🎯 TINH CHỈNH TỪNG PIXEL")
+    precision_group = QGroupBox("🎯 PIXEL PRECISION")
     precision_group.setStyleSheet("margin-top: 10px; color: #06d6a0;")
     precision_layout = QGridLayout(precision_group)
     precision_layout.setSpacing(10)
@@ -261,12 +261,12 @@ def create_custom_editor_screen(app):
     app.spin_y.setRange(-2000, 4000)
     app.spin_y.setStyleSheet("background: #000; color: #fff; padding: 5px;")
 
-    lbl_w = QLabel("Rộng:")
+    lbl_w = QLabel("Width:")
     app.spin_w = QSpinBox()
     app.spin_w.setRange(50, 4000)
     app.spin_w.setStyleSheet("background: #000; color: #fff; padding: 5px;")
 
-    lbl_h = QLabel("Cao:")
+    lbl_h = QLabel("Height:")
     app.spin_h = QSpinBox()
     app.spin_h.setRange(50, 4000)
     app.spin_h.setStyleSheet("background: #000; color: #aaa; padding: 5px;") # Cao thường tự tính
@@ -311,7 +311,7 @@ def create_custom_editor_screen(app):
     ctrl_layout.addWidget(precision_group)
     
     ctrl_layout.addSpacing(20)
-    lbl_manage = QLabel("🗑️ QUẢN LÝ / XÓA LAYOUT:")
+    lbl_manage = QLabel("🗑️ MANAGE / DELETE LAYOUTS:")
     lbl_manage.setStyleSheet("color: #ff6b6b; font-weight: bold; font-size: 14px; margin-top: 10px;")
     ctrl_layout.addWidget(lbl_manage)
 
@@ -329,7 +329,7 @@ def create_custom_editor_screen(app):
     app.refresh_admin_layouts = refresh_layout_list
     refresh_layout_list()
 
-    btn_delete = QPushButton("XÓA LAYOUT ĐÃ CHỌN")
+    btn_delete = QPushButton("DELETE SELECTED LAYOUT")
     btn_delete.setStyleSheet("""
         QPushButton { background-color: #d32f2f; color: white; padding: 10px; border-radius: 8px; font-weight: bold; margin-top: 5px; }
         QPushButton:hover { background-color: #f44336; }
@@ -368,7 +368,7 @@ def create_custom_editor_screen(app):
     # Right Side: Canvas Designer
     app.custom_editor_step = CustomEditorLogic(app)
     app.custom_canvas = InteractiveCanvas(app.custom_editor_step)
-    app.custom_canvas.setFixedSize(800, 600)
+    app.custom_canvas.setMinimumSize(1000, 750) # Tăng kích thước canvas thiết kế
     body_layout.addWidget(app.custom_canvas, stretch=1)
 
     screen_layout.addLayout(body_layout)
@@ -386,14 +386,14 @@ def create_custom_editor_screen(app):
 
     # --- BOTTOM BAR ---
     bottom_bar = QHBoxLayout()
-    btn_cancel = QPushButton("⬅️ HỦY BỎ")
+    btn_cancel = QPushButton("⬅️ CANCEL")
     btn_cancel.setStyleSheet("background-color: #4a4a6a; padding: 15px 30px;")
     btn_cancel.clicked.connect(lambda: app.reset_all())
     bottom_bar.addWidget(btn_cancel)
     
     bottom_bar.addStretch()
     
-    btn_save = QPushButton("💾 LƯU LAYOUT & TẠO THƯ MỤC TEMPLATE 💾")
+    btn_save = QPushButton("💾 SAVE LAYOUT & CREATE TEMPLATE FOLDER 💾")
     btn_save.setObjectName("GreenBtn")
     btn_save.setFixedSize(500, 70)
     btn_save.clicked.connect(lambda: app.custom_editor_step.admin_save_layout())
@@ -422,24 +422,39 @@ class CustomEditorLogic:
         return (4, 3)    # Landscape
 
     def toggle_rotation(self):
-        """Xoay màn hình và ô ảnh 90 độ."""
-        self.rotation = (self.rotation + 90) % 360
+        """
+        Xoay khổ giấy (Canvas) ngang/dọc nhưng giữ nguyên hướng của Ô ảnh.
+        Phù hợp khi muốn thiết kế khung nằm ngang cho camera đặt nằm ngang.
+        """
+        # 1. Swap kích thước Canvas (Ngang <=> Dọc)
+        self.canvas_w, self.canvas_h = self.canvas_h, self.canvas_w
         
-        # Cập nhật lại tỉ lệ cho các ô hiện có
-        ratio = self.get_aspect_ratio()
+        # 2. Cập nhật nhãn hiển thị kích thước canvas trong UI
+        if hasattr(self.app, 'admin_canvas_size_label'):
+            self.app.admin_canvas_size_label.setText(f"{self.canvas_w} × {self.canvas_h} px")
+
+        # 3. Giữ nguyên kích thước ô ảnh, chỉ điều chỉnh tọa độ nếu bị tràn biên
         new_slots = []
         for x, y, w, h in self.temp_slots:
-            # Khi xoay, swap w và h để khớp tỉ lệ mới
-            # Nhưng để đơn giản và chính xác theo yêu cầu, ta ép w và tính lại h theo ratio
-            new_w = w
-            new_h = int(new_w * ratio[1] / ratio[0])
-            new_slots.append((x, y, new_w, new_h))
+            # Không swap w và h để "khung ảnh cố định" hướng
+            new_x, new_y = x, y
+            
+            # Kiểm tra và giới hạn trong biên canvas mới
+            if new_x + w > self.canvas_w:
+                new_x = max(0, self.canvas_w - w)
+            if new_y + h > self.canvas_h:
+                new_y = max(0, self.canvas_h - h)
+                
+            new_slots.append((new_x, new_y, w, h))
         
         self.temp_slots = new_slots
         self.update_preview()
         
-        status = f"Đã xoay {self.rotation}°. Tỉ lệ ô: {ratio[0]}:{ratio[1]}"
-        QMessageBox.information(None, "Xoay màn hình", status)
+        mode = "KHỔ NGANG (Horizontal)" if self.canvas_w > self.canvas_h else "KHỔ DỌC (Vertical)"
+        status = (f"Đã xoay sang {mode}.\n"
+                  f"Kích thước giấy: {self.canvas_w}x{self.canvas_h}\n"
+                  "Ô ảnh vẫn giữ nguyên hướng cũ để khớp với Camera.")
+        QMessageBox.information(None, "Xoay Khổ Giấy", status)
 
     def toggle_grid(self, checked):
         """Bật/tắt hiển thị lưới căn chỉnh."""
@@ -556,8 +571,8 @@ class CustomEditorLogic:
                 sx, sy, sw, sh = self.temp_slots[selected_idx]
                 ratio = self.get_aspect_ratio()
                 info = (
-                    f"📍 Ô #{selected_idx+1}:  X={sx}, Y={sy}\n"
-                    f"📐 Kích thước: {sw} × {sh} px  (tỉ lệ {ratio[0]}:{ratio[1]})"
+                    f"📍 Slot #{selected_idx+1}:  X={sx}, Y={sy}\n"
+                    f"📐 Size: {sw} × {sh} px  (ratio {ratio[0]}:{ratio[1]})"
                 )
                 self.app.admin_slot_info_label.setText(info)
                 
@@ -581,7 +596,7 @@ class CustomEditorLogic:
                     self.app.spin_w.blockSignals(False)
                     self.app.spin_h.blockSignals(False)
             else:
-                self.app.admin_slot_info_label.setText("Chưa chọn ô nào")
+                self.app.admin_slot_info_label.setText("No slot selected")
                 if hasattr(self.app, 'spin_x'):
                     self.app.spin_x.setEnabled(False)
                     self.app.spin_y.setEnabled(False)
@@ -659,7 +674,7 @@ class CustomEditorLogic:
 
                 # Nhãn "Ảnh 1" bên trên viền
                 label_y = max(25, by1 - 10)
-                cv2.putText(template_img, f"Anh {i+1} ({sw}x{sh})", (bx1, label_y),
+                cv2.putText(template_img, f"Photo {i+1} ({sw}x{sh})", (bx1, label_y),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (100, 100, 100, 255), 2)
 
             # BƯỚC 2: Khoét các ô ảnh thành trong suốt SAU KHI đã vẽ viền
@@ -684,3 +699,43 @@ class CustomEditorLogic:
             self.app.reset_all()
         else:
             QMessageBox.critical(None, "Lỗi", "Không thể lưu Layout!")
+
+# ==========================================
+# KHỐI TEST STANDALONE
+# ==========================================
+if __name__ == "__main__":
+    import sys
+    from PyQt5.QtWidgets import QApplication
+
+    # Giả lập đối tượng app
+    class MockApp:
+        def __init__(self):
+            self.admin_layout_name = None
+            self.admin_layout_group = None
+            self.admin_canvas_size_label = None
+            self.admin_slot_info_label = None
+            self.spin_x = None
+            self.spin_y = None
+            self.spin_w = None
+            self.spin_h = None
+            self.admin_layout_list = None
+            self.custom_editor_step = None
+            self.custom_canvas = None
+
+        def reset_all(self):
+            print("Reset ứng dụng!")
+            
+        def refresh_admin_layouts(self):
+            print("Làm mới danh sách layout!")
+
+    app_qt = QApplication(sys.argv)
+    
+    # Áp dụng STYLE cho app test
+    from src.ui.styles import GLOBAL_STYLESHEET
+    app_qt.setStyleSheet(GLOBAL_STYLESHEET)
+
+    mock_app = MockApp()
+    window = create_custom_editor_screen(mock_app)
+    window.showFullScreen()
+    sys.exit(app_qt.exec_())
+

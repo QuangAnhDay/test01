@@ -133,7 +133,7 @@ class FrameEditor(QMainWindow):
         top_bar.setFixedHeight(70)
         top_layout = QHBoxLayout(top_bar)
 
-        lbl_select = QLabel("KIỂU LƯỚI:")
+        lbl_select = QLabel("GRID TYPE:")
         lbl_select.setFont(QFont("Arial", 12, QFont.Bold))
         top_layout.addWidget(lbl_select)
 
@@ -147,18 +147,18 @@ class FrameEditor(QMainWindow):
 
         top_layout.addStretch()
 
-        self.btn_add_slot = QPushButton("➕ THÊM Ô ẢNH")
+        self.btn_add_slot = QPushButton("➕ ADD PHOTO SLOT")
         self.btn_add_slot.setStyleSheet("background-color: #4361ee; color: white; font-weight: bold; padding: 10px 20px; border-radius: 5px;")
         self.btn_add_slot.clicked.connect(self.add_custom_slot)
         self.btn_add_slot.hide()
         top_layout.addWidget(self.btn_add_slot)
 
-        self.btn_save_custom = QPushButton("💾 LƯU THÀNH MẪU MỚI (CUSTOM)")
+        self.btn_save_custom = QPushButton("💾 SAVE AS NEW CUSTOM TEMPLATE")
         self.btn_save_custom.setStyleSheet("background-color: #2ecc71; color: white; font-weight: bold; padding: 10px 20px; border-radius: 5px; margin-left: 10px;")
         self.btn_save_custom.clicked.connect(self.save_custom_layout_action)
         top_layout.addWidget(self.btn_save_custom)
 
-        btn_gen = QPushButton("🛠️ TẠO FILE KHUNG")
+        btn_gen = QPushButton("🛠️ GENERATE FRAME FILES")
         btn_gen.setStyleSheet("background-color: #f39c12; color: white; font-weight: bold; padding: 10px; margin-left:10px;")
         btn_gen.clicked.connect(self.run_frame_gen)
         top_layout.addWidget(btn_gen)
@@ -177,7 +177,7 @@ class FrameEditor(QMainWindow):
         self.code_display = QTextEdit()
         self.code_display.setReadOnly(False)
         self.code_display.setStyleSheet("background-color: #0f172a; color: #10b981; font-family: 'Consolas'; font-size: 11px; border: 1px solid #334155;")
-        self.left_vbox.addWidget(QLabel("MÃ CẤU HÌNH (Copy vào models.py):"))
+        self.left_vbox.addWidget(QLabel("CONFIGURATION CODE (Copy to models.py):"))
         self.left_vbox.addWidget(self.code_display)
 
         content_layout.addWidget(left_panel)
@@ -191,17 +191,17 @@ class FrameEditor(QMainWindow):
         main_vbox.addLayout(content_layout)
 
     def setup_controls(self):
-        self.create_control_group(self.left_vbox, "KÍCH THƯỚC CANVAS", {
-            "CANVAS_W": (400, 2500, "Rộng"),
-            "CANVAS_H": (400, 2500, "Cao")
+        self.create_control_group(self.left_vbox, "CANVAS SIZE", {
+            "CANVAS_W": (400, 2500, "Width"),
+            "CANVAS_H": (400, 2500, "Height")
         })
 
-        self.pad_group = self.create_control_group(self.left_vbox, "BÌ & KHOẢNG CÁCH", {
-            "PAD_TOP": (0, 500, "Trên"),
-            "PAD_BOTTOM": (0, 500, "Dưới"),
-            "PAD_LEFT": (0, 500, "Trái"),
-            "PAD_RIGHT": (0, 500, "Phải"),
-            "GAP": (0, 200, "Khoảng cách")
+        self.pad_group = self.create_control_group(self.left_vbox, "PADDING & GAP", {
+            "PAD_TOP": (0, 500, "Top"),
+            "PAD_BOTTOM": (0, 500, "Bottom"),
+            "PAD_LEFT": (0, 500, "Left"),
+            "PAD_RIGHT": (0, 500, "Right"),
+            "GAP": (0, 200, "Gap")
         })
 
     def create_control_group(self, parent_layout, title, controls):
@@ -352,7 +352,7 @@ class FrameEditor(QMainWindow):
                 save_slots = [(pos[0], pos[1], sw, sh) for pos in calculated_slots_info]
 
             if not save_slots:
-                QMessageBox.warning(self, "Lỗi", "Không có ô ảnh nào để lưu!")
+                QMessageBox.warning(self, "Error", "No photo slots to save!")
                 return
 
             base_templates_dir = "templates"
@@ -379,7 +379,7 @@ class FrameEditor(QMainWindow):
 
             success = fc_module.save_custom_layout(custom_name, config_to_save)
             if not success:
-                raise Exception("Không thể ghi vào custom_layouts.json")
+                raise Exception("Could not write to custom_layouts.json")
 
             w, h = self.config["CANVAS_W"], self.config["CANVAS_H"]
             
@@ -396,25 +396,25 @@ class FrameEditor(QMainWindow):
             mold_path = os.path.join(custom_dir, f"mold_{custom_name}.png")
             cv2.imwrite(mold_path, mold)
 
-            QMessageBox.information(self, "Tạo thành công",
-                                    f"Đã lưu mẫu {custom_name} thành công!\n\n"
-                                    f"📍 Thư mục: {custom_dir}\n"
-                                    f"🖼️ File 'mold_{custom_name}.png' đã được tạo với kích thước đúng tỉ lệ.\n"
-                                    f"Hãy dùng file này để thiết kế khung theo ý thích của bạn.")
+            QMessageBox.information(self, "Created Successfully",
+                                    f"Saved template {custom_name} successfully!\n\n"
+                                    f"📍 Directory: {custom_dir}\n"
+                                    f"🖼️ File 'mold_{custom_name}.png' has been created with the correct aspect ratio.\n"
+                                    f"Use this file to design your frame.")
 
             self.run_frame_gen()
 
         except Exception as e:
-            QMessageBox.critical(self, "Lỗi", f"Không thể lưu cấu hình: {e}")
+            QMessageBox.critical(self, "Error", f"Could not save configuration: {e}")
 
     def run_frame_gen(self):
         """Chạy script tạo file khung ảnh."""
         try:
             from src.services.image.template import generate_frame_templates
             generate_frame_templates()
-            QMessageBox.information(self, "Thành công", "Đã tạo/cập nhật các file khung ảnh trong thư mục /templates")
+            QMessageBox.information(self, "Success", "Created/updated frame files in /templates")
         except Exception as e:
-            QMessageBox.critical(self, "Lỗi", f"Không thể tạo file khung: {e}")
+            QMessageBox.critical(self, "Error", f"Could not create frame files: {e}")
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
