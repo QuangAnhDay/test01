@@ -1,1 +1,0 @@
-# Photobooth package - Client UI

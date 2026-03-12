@@ -7,7 +7,7 @@ Màn hình chờ: Hiển thị carousel ảnh và nút bắt đầu.
 
 from PyQt5.QtWidgets import QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout
 from PyQt5.QtCore import Qt
-from src.photobooth.components.carousel import CarouselPhotoWidget
+from src.ui.widgets.carousel import CarouselPhotoWidget
 from src.utils import load_sample_photos
 
 

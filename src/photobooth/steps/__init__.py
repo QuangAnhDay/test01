@@ -1,1 +1,0 @@
-# Photobooth Steps

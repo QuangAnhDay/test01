@@ -21,7 +21,8 @@ from PyQt5.QtWidgets import (QWidget, QLabel, QPushButton, QVBoxLayout,
 from PyQt5.QtCore import Qt, QTimer, QSize
 from PyQt5.QtGui import QImage, QPixmap, QFont
 from src.utils import convert_cv_qt, overlay_images, get_rounded_pixmap
-from src.modules.image_processing.processor import apply_template_overlay, crop_to_aspect_wh
+from src.services.image.template import apply_template_overlay
+from src.services.image.collage import crop_to_aspect_wh
 
 def create_interactive_capture_screen(app):
     """

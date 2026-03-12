@@ -45,26 +45,30 @@ from src.utils import (
 from src.utils.qr_utils import generate_qr_code
 
 # Import modules
-from src.modules.payment.payment_service import QRImageLoaderThread, CassoCheckThread
-from src.modules.image_processing.processor import (
-    generate_frame_templates, create_collage, crop_to_aspect_wh,
-    load_templates_for_layout, apply_template_overlay,
-    load_all_templates_for_group, detect_layout_from_template
+from src.services.payment.payment_service import QRImageLoaderThread, CassoCheckThread
+from src.services.image.template import (
+    generate_frame_templates,
+    load_templates_for_layout,
+    apply_template_overlay,
+    load_all_templates_for_group,
+    detect_layout_from_template
 )
+from src.services.image.collage import create_collage, crop_to_aspect_wh
+from src.services.image.filters import apply_filter, get_available_filters
 
 # Import UI components
-from src.photobooth.components.dialogs import DownloadQRDialog
+from src.ui.dialogs.dialogs import DownloadQRDialog
 
 # Import step screens
 #from src.photobooth.steps.step_0_idle import create_idle_screen
-from src.photobooth.steps.step_1_package import create_package_screen
-from src.photobooth.steps.step_2_payment import create_payment_screen
-from src.photobooth.steps.step_3_liveview import create_liveview_screen
-from src.photobooth.steps.step_4_capture import create_photo_select_screen
-from src.photobooth.steps.step_6_template import create_template_screen
-from src.photobooth.steps.step_8_finish import create_finish_screen
-from src.photobooth.steps.step_1_custom_editor import create_custom_editor_screen
-from src.photobooth.steps.step_9_interactive import create_interactive_capture_screen
+from src.ui.screens.steps.step_1_package import create_package_screen
+from src.ui.screens.steps.step_2_payment import create_payment_screen
+from src.ui.screens.steps.step_3_liveview import create_liveview_screen
+from src.ui.screens.steps.step_4_capture import create_photo_select_screen
+from src.ui.screens.steps.step_6_template import create_template_screen
+from src.ui.screens.steps.step_8_finish import create_finish_screen
+from src.ui.screens.steps.step_1_custom_editor import create_custom_editor_screen
+from src.ui.screens.steps.step_9_interactive import create_interactive_capture_screen
 from src.ui.screens.home_screen import HomeScreen
 
 # Import flow controller
