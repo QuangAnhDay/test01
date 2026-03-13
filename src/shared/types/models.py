@@ -218,17 +218,18 @@ def save_custom_layout(name, config, group="custom"):
     """Lưu một cấu hình layout custom mới vào file JSON kèm theo nhóm."""
     current_layouts = load_custom_layouts()
     
-    # Ép kiểu SLOTS thành list để JSONify được
+    # Ép kiểu SLOTS thành list để JSONify được, hỗ trợ cả (x,y,w,h) và (x,y,w,h,rotation)
     slots_list = []
     if "SLOTS" in config:
-        slots_list = [list(s) for s in config["SLOTS"]]
+        for s in config["SLOTS"]:
+            slots_list.append(list(s))
     
     current_layouts[name] = {
         "CANVAS_W": config.get("CANVAS_W", 800),
         "CANVAS_H": config.get("CANVAS_H", 1200),
         "SLOTS": slots_list,
         "group": group,  # Phân loại: 'vertical' hoặc 'custom'
-        "rotation": config.get("rotation", 0)  # Hướng xoay: 0, 90, 180, 270
+        "rotation": config.get("rotation", 0)  # Hướng xoay của toàn bộ canvas: 0, 90, 180, 270
     }
     
     try:

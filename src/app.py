@@ -893,7 +893,8 @@ class PhotoboothApp(QMainWindow):
             
             # Vẽ các ô "chừa phần chứa ảnh" bằng màu hồng nền để tạo cảm giác trong suốt
             slots = cfg.get("SLOTS", [])
-            for sx, sy, sw, sh in slots:
+            for slot in slots:
+                sx, sy, sw, sh = slot[:4]
                 cv2.rectangle(blank, (sx, sy), (sx+sw, sy+sh), (229, 227, 242), -1)
                 
             self.merged_image = apply_template_overlay(blank, template_path)
@@ -992,6 +993,41 @@ class PhotoboothApp(QMainWindow):
         self.timer_shot.start(1000)
         self.btn_capture_step.setEnabled(False)
 
+        # CẬP NHẬT OVERLAYS DỰA TRÊN HƯỚNG Ô (Portrait/Landscape)
+        if hasattr(self, 'cam_overlay_left'):
+            from src.shared.types.models import get_layout_config
+            cfg = get_layout_config(self.layout_type)
+            slots = cfg.get("SLOTS", [])
+            idx = getattr(self, 'current_slot_index', 0)
+            
+            show_overlays = False
+            if idx < len(slots):
+                # Kiểm tra phần tử thứ 5 (rotation) hoặc tự động phát hiện qua w/h
+                s = slots[idx]
+                sx, sy, sw, sh = s[:4]
+                rot = s[4] if len(s) > 4 else 0
+                if rot % 180 == 90 or sw < sh: # Ưu tiên cờ rotation, fallback tỉ lệ
+                    show_overlays = True
+
+            if show_overlays:
+                # Tính toán kích thước dải đen (Camera 4:3, Slot 3:4)
+                cam_rect = self.interactive_camera_label.rect()
+                CW = cam_rect.width()
+                CH = cam_rect.height()
+                
+                # Tỉ lệ 3:4 tương ứng với w = 0.75 * h. 
+                # Trên màn hình camera 4:3 (w=1.33h), phần clear chiếm (0.75 / 1.33) = 56%
+                clear_w = int(0.5625 * CW)
+                bar_w = (CW - clear_w) // 2
+                
+                self.cam_overlay_left.setGeometry(0, 0, bar_w, CH)
+                self.cam_overlay_right.setGeometry(CW - bar_w, 0, bar_w, CH)
+                self.cam_overlay_left.show()
+                self.cam_overlay_right.show()
+            else:
+                self.cam_overlay_left.hide()
+                self.cam_overlay_right.hide()
+
     def interactive_countdown_tick(self):
         self.countdown_val -= 1
         if self.countdown_val > 0:
@@ -1024,6 +1060,11 @@ class PhotoboothApp(QMainWindow):
         if hasattr(self, 'interactive_stack'):
             print("[DEBUG] Switching interactive_stack back to Page 0")
             self.interactive_stack.setCurrentIndex(0)
+            
+        # Ẩn overlays nếu có
+        if hasattr(self, 'cam_overlay_left'):
+            self.cam_overlay_left.hide()
+            self.cam_overlay_right.hide()
 
         # Lấy frame từ CameraHandler
         frame = None
@@ -1079,7 +1120,8 @@ class PhotoboothApp(QMainWindow):
         print(f"[DEBUG] update_interactive: Layout={self.layout_type}, Slots={len(slots)}, Image Count={len(interactive_photos)}")
         
         # Vẽ các ảnh đã chụp
-        for i, (sx, sy, sw, sh) in enumerate(slots):
+        for i, slot in enumerate(slots):
+            sx, sy, sw, sh = slot[:4]
             if i < len(interactive_photos):
                 photo = interactive_photos[i]
                 cropped = crop_to_aspect_wh(photo, sw, sh)

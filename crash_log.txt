@@ -1,4 +1,0 @@
-Traceback (most recent call last):
-  File "d:\photobooth2\src\app_free.py", line 274, in on_frame_home
-    rounded_pixmap = get_rounded_pixmap(pixmap, radius=24, width=lbl.width(), height=lbl.height())
-TypeError: get_rounded_pixmap() got an unexpected keyword argument 'width'

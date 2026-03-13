@@ -68,9 +68,9 @@ pip install pygrabber
 2. Kết nối máy ảnh qua USB, mở phần mềm và đảm bảo máy ảnh đã được nhận diện.
 3. Vào **Settings** → Bật chức năng **Webserver**.
 4. Tại màn hình chính, nhấn nút **LV** (Live View) để truyền tín hiệu.
-5. Sao chép link MJPEG (mặc định: `http://127.0.0.1:8080/mjpg/video.mjpg`).
-6. Chạy cấu hình camera: `python -m src.admin.pages.settings`.
-7. Dán link vào ô **MJPEG Stream Address** và nhấn **USE DSLR**.
+5. Sao chép link MJPEG ở phần websever của digicam control.
+6. Dán link đó vào camera_setup ( khởi động chương trình rồi bấm f1).
+
 
 ---
 

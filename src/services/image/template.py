@@ -49,7 +49,7 @@ def generate_frame_templates():
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (100, 100, 100, 255), 2)
             # Khoét vùng slot trong suốt (alpha=0) để ảnh hiện ra
             for slot in cfg.get("SLOTS", []):
-                sx, sy, sw, sh = slot
+                sx, sy, sw, sh = slot[:4]
                 y1, y2 = max(0, sy), min(h, sy + sh)
                 x1, x2 = max(0, sx), min(w, sx + sw)
                 frame[y1:y2, x1:x2] = [0, 0, 0, 0]

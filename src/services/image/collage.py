@@ -69,7 +69,10 @@ def create_collage(images, layout_type):
         for i, img in enumerate(images):
             if i >= len(slots):
                 break
-            sx, sy, sw, sh = slots[i]
+            slot = slots[i]
+            sx, sy, sw, sh = slot[:4]
+            # Không cần check rotation ở đây vì sw, sh đã phản ánh hình dáng ô
+            # crop_to_aspect_wh sẽ tự động cắt ảnh theo sw/sh
             cropped = crop_to_aspect_wh(img, sw, sh)
             resized = cv2.resize(cropped, (sw, sh))
             canvas[sy:sy + sh, sx:sx + sw] = resized

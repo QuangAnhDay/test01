@@ -148,6 +148,15 @@ def create_interactive_capture_screen(app):
     app.interactive_flash_overlay.setStyleSheet("background-color: white;")
     app.interactive_flash_overlay.hide()
 
+    # Portrait Crop Overlays (Hai dải đen mờ 2 bên)
+    app.cam_overlay_left = QFrame(app.interactive_camera_label)
+    app.cam_overlay_left.setStyleSheet("background-color: rgba(0, 0, 0, 180); border: none;")
+    app.cam_overlay_left.hide()
+    
+    app.cam_overlay_right = QFrame(app.interactive_camera_label)
+    app.cam_overlay_right.setStyleSheet("background-color: rgba(0, 0, 0, 180); border: none;")
+    app.cam_overlay_right.hide()
+
     app.interactive_stack.addWidget(app.page_capture)
 
     app.interactive_stack.setCurrentIndex(0)

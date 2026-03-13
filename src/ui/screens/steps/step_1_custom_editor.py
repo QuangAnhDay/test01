@@ -39,7 +39,7 @@ class InteractiveCanvas(QLabel):
 
         # Kiểm tra click vào ô ảnh nào
         for i, slot in enumerate(self.step.temp_slots):
-            rect = QRect(*slot)
+            rect = QRect(*slot[:4])
             # Resize handle ở góc dưới phải
             resize_rect = QRect(rect.right()-40, rect.bottom()-40, 50, 50)
             if resize_rect.contains(scaled_pos):
@@ -71,16 +71,17 @@ class InteractiveCanvas(QLabel):
         scaled_pos = self.to_canvas_coords(pos)
         diff = scaled_pos - self.last_pos
         
-        x, y, w, h = self.step.temp_slots[self.selected_idx]
+        x, y, w, h, *rot = self.step.temp_slots[self.selected_idx]
+        rotation = rot[0] if rot else 0
 
         if self.resizing:
             # Sử dụng tỉ lệ từ logic (đã hỗ trợ xoay)
-            ratio = self.step.get_aspect_ratio()
+            ratio = self.step.get_aspect_ratio_for_slot(rotation)
             new_w = max(120, w + diff.x())
             new_h = int(new_w * ratio[1] / ratio[0])
-            self.step.temp_slots[self.selected_idx] = (x, y, new_w, new_h)
+            self.step.temp_slots[self.selected_idx] = (x, y, new_w, new_h, rotation)
         elif self.dragging:
-            self.step.temp_slots[self.selected_idx] = (x + diff.x(), y + diff.y(), w, h)
+            self.step.temp_slots[self.selected_idx] = (x + diff.x(), y + diff.y(), w, h, rotation)
 
         self.last_pos = scaled_pos
         self.update_ui()
@@ -147,10 +148,18 @@ def create_custom_editor_screen(app):
     top_bar.addWidget(btn_clear)
 
     # Nút Xoay màn hình / camera
-    btn_rotate = QPushButton("🔄 ROTATE 90°")
-    btn_rotate.setStyleSheet("background-color: #fb8500; padding: 10px 20px; border-radius: 10px; margin-left:10px; font-weight: bold;")
-    btn_rotate.clicked.connect(lambda: app.custom_editor_step.toggle_rotation())
-    top_bar.addWidget(btn_rotate)
+    btn_rotate_canvas = QPushButton("🔄 ROTATE CANVAS")
+    btn_rotate_canvas.setToolTip("Xoay toàn bộ khổ giấy (Ngang/Dọc)")
+    btn_rotate_canvas.setStyleSheet("background-color: #fb8500; padding: 10px 20px; border-radius: 10px; margin-left:10px; font-weight: bold;")
+    btn_rotate_canvas.clicked.connect(lambda: app.custom_editor_step.toggle_rotation())
+    top_bar.addWidget(btn_rotate_canvas)
+
+    # Nút Xoay ẢNH (Chỉ xoay ô đang chọn)
+    btn_rotate_photo = QPushButton("📸 ROTATE PHOTO")
+    btn_rotate_photo.setToolTip("Xoay hướng ảnh trong Ô đang chọn (Dọc <=> Ngang)")
+    btn_rotate_photo.setStyleSheet("background-color: #4361ee; color: white; padding: 10px 20px; border-radius: 10px; margin-left:10px; font-weight: bold;")
+    btn_rotate_photo.clicked.connect(lambda: app.custom_editor_step.toggle_slot_rotation())
+    top_bar.addWidget(btn_rotate_photo)
 
     # Nút bật/tắt lưới căn chỉnh
     btn_grid = QPushButton("📐 GRID")
@@ -291,8 +300,10 @@ def create_custom_editor_screen(app):
             ny = app.spin_y.value()
             nw = app.spin_w.value()
 
-            # Tính nh theo tỉ lệ hiện tại
-            ratio = app.custom_editor_step.get_aspect_ratio()
+            # Tính nh theo tỉ lệ hiện tại của ô
+            slots = app.custom_editor_step.temp_slots
+            rot = slots[idx][4] if len(slots[idx]) > 4 else 0
+            ratio = app.custom_editor_step.get_aspect_ratio_for_slot(rot)
             nh = int(nw * ratio[1] / ratio[0])
             
             # Cập nhật hiển thị spin_h (chặn signal để tránh đệ quy)
@@ -301,7 +312,7 @@ def create_custom_editor_screen(app):
             app.spin_h.blockSignals(False)
             
             # Cập nhật vào data
-            app.custom_editor_step.temp_slots[idx] = (nx, ny, nw, nh)
+            app.custom_editor_step.temp_slots[idx] = (nx, ny, nw, nh, rot)
             app.custom_editor_step.update_preview()
 
     app.spin_x.valueChanged.connect(lambda: on_spinner_changed())
@@ -410,21 +421,36 @@ class CustomEditorLogic:
         self.app = app
         self.canvas_w = 600
         self.canvas_h = 1800
-        self.temp_slots = [(100, 100, 400, 300)]
+        self.temp_slots = [(100, 100, 400, 300, 0)] # (x, y, w, h, rotation)
         self.canvas_widget = None
         self.show_grid = True  # Lưới căn chỉnh mặc định BẬT
-        self.rotation = 0      # 0, 90, 180, 270
+        self.rotation = 0      # 0, 90, 180, 270 (Toàn bộ canvas)
 
-    def get_aspect_ratio(self):
-        """Trả về tỉ lệ (w, h) dựa trên trạng thái xoay."""
-        if self.rotation % 180 == 90:
-            return (3, 4) # Portrait
+    def get_aspect_ratio_for_slot(self, slot_rotation):
+        """Trả về tỉ lệ (w, h) cho từng ô ảnh cụ thể."""
+        if slot_rotation % 180 == 90:
+            return (3, 4) # Portrait crop
         return (4, 3)    # Landscape
 
+    def toggle_slot_rotation(self):
+        """Xoay hướng ảnh cho duy nhất một ô đang được chọn."""
+        if not self.canvas_widget or self.canvas_widget.selected_idx == -1:
+            QMessageBox.warning(None, "Lỗi", "Vui lòng chọn một ô ảnh trước khi xoay!")
+            return
+            
+        idx = self.canvas_widget.selected_idx
+        x, y, w, h, *rot = self.temp_slots[idx]
+        current_rot = rot[0] if rot else 0
+        new_rot = (current_rot + 90) % 360
+        
+        # Swap w và h để chuyển dáng ô từ Thẳng <=> Ngang
+        new_w, new_h = h, w
+        self.temp_slots[idx] = (x, y, new_w, new_h, new_rot)
+        self.update_preview()
+        
     def toggle_rotation(self):
         """
-        Xoay khổ giấy (Canvas) ngang/dọc nhưng giữ nguyên hướng của Ô ảnh.
-        Phù hợp khi muốn thiết kế khung nằm ngang cho camera đặt nằm ngang.
+        Xoay khổ giấy (Canvas) ngang/dọc.
         """
         # 1. Swap kích thước Canvas (Ngang <=> Dọc)
         self.canvas_w, self.canvas_h = self.canvas_h, self.canvas_w
@@ -433,28 +459,23 @@ class CustomEditorLogic:
         if hasattr(self.app, 'admin_canvas_size_label'):
             self.app.admin_canvas_size_label.setText(f"{self.canvas_w} × {self.canvas_h} px")
 
-        # 3. Giữ nguyên kích thước ô ảnh, chỉ điều chỉnh tọa độ nếu bị tràn biên
+        # 3. Giữ nguyên hướng và hình dáng ô ảnh
         new_slots = []
-        for x, y, w, h in self.temp_slots:
-            # Không swap w và h để "khung ảnh cố định" hướng
-            new_x, new_y = x, y
+        for s in self.temp_slots:
+            # Xử lý cả list 4 phần tử (cũ) và 5 phần tử (mới)
+            x, y, w, h = s[:4]
+            rot = s[4] if len(s) > 4 else 0
             
-            # Kiểm tra và giới hạn trong biên canvas mới
-            if new_x + w > self.canvas_w:
-                new_x = max(0, self.canvas_w - w)
-            if new_y + h > self.canvas_h:
-                new_y = max(0, self.canvas_h - h)
-                
-            new_slots.append((new_x, new_y, w, h))
+            new_x, new_y = x, y
+            if new_x + w > self.canvas_w: new_x = max(0, self.canvas_w - w)
+            if new_y + h > self.canvas_h: new_y = max(0, self.canvas_h - h)
+            new_slots.append((new_x, new_y, w, h, rot))
         
         self.temp_slots = new_slots
         self.update_preview()
         
         mode = "KHỔ NGANG (Horizontal)" if self.canvas_w > self.canvas_h else "KHỔ DỌC (Vertical)"
-        status = (f"Đã xoay sang {mode}.\n"
-                  f"Kích thước giấy: {self.canvas_w}x{self.canvas_h}\n"
-                  "Ô ảnh vẫn giữ nguyên hướng cũ để khớp với Camera.")
-        QMessageBox.information(None, "Xoay Khổ Giấy", status)
+        QMessageBox.information(None, "Xoay Khổ Giấy", f"Đã xoay sang {mode}.\nGiữ nguyên hướng của các ô ảnh.")
 
     def toggle_grid(self, checked):
         """Bật/tắt hiển thị lưới căn chỉnh."""
@@ -466,10 +487,10 @@ class CustomEditorLogic:
         self.canvas_w = w
         self.canvas_h = h
         # Đặt lại slot mặc định phù hợp với canvas mới, giữ tỉ lệ
-        ratio = self.get_aspect_ratio()
+        ratio = (4, 3) # Mặc định bắt đầu là ngang
         default_slot_w = min(350, w - 40)
         default_slot_h = int(default_slot_w * ratio[1] / ratio[0])
-        self.temp_slots = [(20, 20, default_slot_w, default_slot_h)]
+        self.temp_slots = [(20, 20, default_slot_w, default_slot_h, 0)]
         
         # Reset selection để tránh IndexError
         if self.canvas_widget:
@@ -478,12 +499,12 @@ class CustomEditorLogic:
         self.update_preview()
 
     def add_slot(self):
-        # Tính vị trí slot mới dựa trên canvas hiện tại, giữ tỉ lệ
-        ratio = self.get_aspect_ratio()
+        # Tính vị trí slot mới dựa trên canvas hiện tại, mặc định ngang
+        ratio = (4, 3)
         offset_y = len(self.temp_slots) * 50
         slot_w = min(400, self.canvas_w - 40)
         slot_h = int(slot_w * ratio[1] / ratio[0])
-        self.temp_slots.append((20, 20 + offset_y, slot_w, slot_h))
+        self.temp_slots.append((20, 20 + offset_y, slot_w, slot_h, 0))
         self.update_preview()
 
     def clear_slots(self):
@@ -540,7 +561,9 @@ class CustomEditorLogic:
 
         selected_idx = self.canvas_widget.selected_idx if self.canvas_widget else -1
         
-        for i, (sx, sy, sw, sh) in enumerate(self.temp_slots):
+        for i, slot in enumerate(self.temp_slots):
+            sx, sy, sw, sh = slot[:4]
+            rot = slot[4] if len(slot) > 4 else 0
             # Ô đang chọn có viền khác biệt
             if i == selected_idx:
                 # Viền ngoài highlight
@@ -554,6 +577,12 @@ class CustomEditorLogic:
             
             # Label số thứ tự + kích thước
             cv2.putText(canvas, f"#{i+1}", (sx+15, sy+50), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255,255,255), 3)
+            
+            # Thêm biểu tượng hướng (V = Vertical, H = Horizontal)
+            orient = "V" if rot % 180 == 90 else "H"
+            orient_color = (100, 255, 100) if orient == "V" else (255, 150, 150)
+            cv2.putText(canvas, orient, (sx+sw-40, sy+45), cv2.FONT_HERSHEY_SIMPLEX, 1.0, orient_color, 3)
+            
             size_text = f"{sw}x{sh}"
             cv2.putText(canvas, size_text, (sx+15, sy+85), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200,200,200), 2)
             
@@ -568,11 +597,14 @@ class CustomEditorLogic:
         # Cập nhật label thông tin ô đang chọn
         if hasattr(self.app, 'admin_slot_info_label'):
             if selected_idx >= 0 and selected_idx < len(self.temp_slots):
-                sx, sy, sw, sh = self.temp_slots[selected_idx]
-                ratio = self.get_aspect_ratio()
+                s = self.temp_slots[selected_idx]
+                sx, sy, sw, sh = s[:4]
+                rot = s[4] if len(s) > 4 else 0
+                ratio = self.get_aspect_ratio_for_slot(rot)
+                mode_str = "DỌC (3:4 crop)" if rot % 180 == 90 else "NGANG (4:3)"
                 info = (
                     f"📍 Slot #{selected_idx+1}:  X={sx}, Y={sy}\n"
-                    f"📐 Size: {sw} × {sh} px  (ratio {ratio[0]}:{ratio[1]})"
+                    f"📐 Size: {sw} × {sh} px  ({mode_str})"
                 )
                 self.app.admin_slot_info_label.setText(info)
                 
@@ -663,7 +695,10 @@ class CustomEditorLogic:
             template_img = np.ones((self.canvas_h, self.canvas_w, 4), dtype=np.uint8) * 255
 
             # BƯỚC 1: Vẽ viền đen đậm + nhãn LÊN NỀN TRẮNG trước
-            for i, (sx, sy, sw, sh) in enumerate(self.temp_slots):
+            for i, slot in enumerate(self.temp_slots):
+                sx, sy, sw, sh = slot[:4]
+                rot = slot[4] if len(slot) > 4 else 0
+                
                 y1, y2 = max(0, sy), min(self.canvas_h, sy + sh)
                 x1, x2 = max(0, sx), min(self.canvas_w, sx + sw)
 
@@ -674,11 +709,13 @@ class CustomEditorLogic:
 
                 # Nhãn "Ảnh 1" bên trên viền
                 label_y = max(25, by1 - 10)
-                cv2.putText(template_img, f"Photo {i+1} ({sw}x{sh})", (bx1, label_y),
+                mode_txt = "Portrait" if rot % 180 == 90 else "Landscape"
+                cv2.putText(template_img, f"Photo {i+1} ({mode_txt})", (bx1, label_y),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (100, 100, 100, 255), 2)
 
             # BƯỚC 2: Khoét các ô ảnh thành trong suốt SAU KHI đã vẽ viền
-            for sx, sy, sw, sh in self.temp_slots:
+            for slot in self.temp_slots:
+                sx, sy, sw, sh = slot[:4]
                 y1, y2 = max(0, sy), min(self.canvas_h, sy + sh)
                 x1, x2 = max(0, sx), min(self.canvas_w, sx + sw)
                 template_img[y1:y2, x1:x2] = [0, 0, 0, 0]
