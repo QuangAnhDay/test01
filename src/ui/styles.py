@@ -12,51 +12,51 @@ GLOBAL_STYLESHEET = """
     
     /* Phong chu chung cho cac nhan van ban */
     QLabel { 
-        color: white; 
+        color: #D33E42; 
         font-family: 'Cooper Black', 'Arial', 'Tahoma', 'Segoe UI', sans-serif;
         font-size: 18px;
     }
     
     /* Mau tieu de chinh (VD: Ten ứng dụng) */
     QLabel#TitleLabel {
-        font-size: 32px; font-weight: bold; color: #eaf0f6;
+        font-size: 32px; font-weight: bold; color: #D33E42;
         font-family: 'Cooper Black', 'Arial', 'Tahoma', sans-serif;
     }
     
     /* Mau tieu de phu */
     QLabel#SubTitleLabel {
-        font-size: 24px; font-weight: bold; color: #ffd700;
+        font-size: 24px; font-weight: bold; color: #D33E42;
         font-family: 'Cooper Black', 'Arial', 'Tahoma', sans-serif;
     }
     
-    /* Mau so dem nguoc (Mau vang ruc ro) */
+    /* Mau so dem nguoc (Mau trang) */
     QLabel#CountdownLabel {
-        font-size: 120px; font-weight: bold; color: #ffd700;
+        font-size: 120px; font-weight: bold; color: white;
         font-family: 'Cooper Black', 'Arial', sans-serif;
     }
     
     /* Mau chu thong tin huong dan (Mau xanh nhat) */
     QLabel#InfoLabel {
-        font-size: 24px; color: #a8dadc;
+        font-size: 24px; color: #D33E42;
         font-family: 'Cooper Black', 'Arial', 'Tahoma', sans-serif;
     }
     
     /* Mau hien thi gia tien (Mau xanh la cay) */
     QLabel#PriceLabel {
-        font-size: 28px; font-weight: bold; color: #06d6a0;
+        font-size: 28px; font-weight: bold; color: #D33E42;
         font-family: 'Cooper Black', 'Arial', 'Tahoma', sans-serif;
     }
     
     /* Nut nhan mac dinh (Mau do hong) */
     QPushButton {
-        background-color: #e94560; color: white; border: none;
+        background-color: #e94560; color: #D33E42; border: none;
         border-radius: 15px; padding: 20px 40px; font-size: 22px;
         font-weight: bold; font-family: 'Cooper Black', 'Arial', 'Tahoma', sans-serif;
         min-height: 60px;
     }
     QPushButton:hover { background-color: #ff6b6b; }
     QPushButton:pressed { background-color: #c73e5a; }
-    QPushButton:disabled { background-color: #4a4a6a; color: #8a8a9a; }
+    QPushButton:disabled { background-color: #4a4a6a; color: #D33E42; }
     
     /* Nut nhan mau xanh la (Xac nhan, Bat dau) */
     QPushButton#GreenBtn { background-color: #06d6a0; }

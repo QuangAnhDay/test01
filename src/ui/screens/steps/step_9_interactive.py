@@ -82,8 +82,8 @@ def create_interactive_capture_screen(app):
         QPushButton {
             /* Mau trang cho cac nut chuc nang (Chup anh, Chup lai) */
             background-color: white; 
-            /* Mau chu nut (Hong) */
-            color: #FF7E7E;
+            /* Mau chu nut (Do dam) */
+            color: #D33E42;
             font-family: 'Cooper Black', 'Arial'; font-size: 28px; font-style: italic; font-weight: bold;
             border-radius: 20px; border: none; min-height: 90px;
         }
@@ -110,8 +110,8 @@ def create_interactive_capture_screen(app):
         QPushButton {
             /* Mau nen nut GET PHOTOS (Mau hong dam) */
             background-color: #FF7E7E; 
-            /* Mau chu trang */
-            color: white;
+            /* Mau chu do dam */
+            color: #D33E42;
             font-family: 'Cooper Black', 'Arial'; font-size: 38px; font-style: italic; font-weight: bold;
             border-radius: 25px; border: 5px solid white;
         }
@@ -139,7 +139,7 @@ def create_interactive_capture_screen(app):
     app.interactive_countdown_label.setAlignment(Qt.AlignCenter)
     app.interactive_countdown_label.setStyleSheet("""
         font-family: 'Cooper Black', 'Arial'; font-size: 250px; font-weight: bold; 
-        color: rgba(255, 255, 255, 120); background-color: rgba(0, 0, 0, 30);
+        color: white; background-color: rgba(0, 0, 0, 30);
     """)
     app.interactive_countdown_label.hide()
 

@@ -26,7 +26,7 @@ def create_finish_screen(app):
     title_box.setGeometry(685, 40, 550, 85) 
     title_box.setStyleSheet("""
         /* Mau nen tieu de (Hong nhat) */
-        background-color: #FADBDC; color: white;
+        background-color: #FADBDC; color: #D33E42;
         font-family: 'Cooper Black', 'Arial'; font-size: 36px; font-style: italic; font-weight: bold;
         border-radius: 25px; border: 5px solid white;
     """)
@@ -52,7 +52,7 @@ def create_finish_screen(app):
     app.btn_accept.setStyleSheet("""
         QPushButton {
             /* Mau nen nut IN ANH (Mau hồng cam) */
-            background-color: #FF7E7E; color: white;
+            background-color: #FF7E7E; color: #D33E42;
             font-family: 'Cooper Black', 'Arial'; font-size: 38px; font-style: italic; font-weight: bold;
             border-radius: 25px; border: 5px solid white;
         }

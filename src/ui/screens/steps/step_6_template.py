@@ -2,7 +2,7 @@ import os
 import sys
 
 # === PATH FIX: Cho phép chạy trực tiếp ===
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
@@ -55,14 +55,14 @@ def create_template_screen(app):
     app.btn_template_back.setStyleSheet("""
         QPushButton {
             /* Mau nen nut quay lai (Hong nhat) */
-            background-color: #FADBDC; color: white;
+            background-color: #FADBDC; color: #D33E42;
             font-size: 70px; font-weight: 300;
             border-radius: 30px; border: 5px solid white;
         }
         QPushButton:hover { background-color: #F8B9BC; }
     """)
     if hasattr(app, 'stacked'):
-        app.btn_template_back.clicked.connect(lambda: app.stacked.setCurrentIndex(1))
+        app.btn_template_back.clicked.connect(lambda: app.stacked.setCurrentIndex(app.IDX_PACKAGE))
     
     # --- [2] TIÊU ĐỀ CHÍNH ("chọn khung bạn muốn") ---
     title_box = QLabel("choose your frame", screen)
@@ -71,7 +71,7 @@ def create_template_screen(app):
     title_box.setGeometry(435, 40, 450, 85) 
     title_box.setStyleSheet("""
         /* Mau nen thanh tieu de (Hong nhat) */
-        background-color: #FADBDC; color: white;
+        background-color: #FADBDC; color: #D33E42;
         font-family: 'Cooper Black', 'Arial'; font-size: 28px; font-style: italic; font-weight: bold;
         border-radius: 25px;
     """)
@@ -80,7 +80,7 @@ def create_template_screen(app):
     app.lbl_template_timer = QLabel("60", screen)
     # Tinh chỉnh vị trí: setGeometry(X, Y, Rộng, Cao)
     app.lbl_template_timer.setGeometry(1780, 40, 100, 85)
-    app.lbl_template_timer.setStyleSheet("color: white; font-size: 34px; font-weight: bold;")
+    app.lbl_template_timer.setStyleSheet("color: #D33E42; font-size: 34px; font-weight: bold;")
     app.lbl_template_timer.setAlignment(Qt.AlignCenter)
 
     # --- [4] KHUNG CHỨA CÁC NÚT LỌC ("khung 3 ảnh" và "khung 4 ảnh") ---
@@ -103,12 +103,12 @@ def create_template_screen(app):
         btn.setStyleSheet("""
             QPushButton {
                 /* Mau trang cho cac nut loc */
-                background-color: white; color: black;
+                background-color: white; color: #D33E42;
                 font-family: 'Cooper Black', 'Arial'; font-size: 26px; font-style: italic; font-weight: bold;
                 border-radius: 15px; border: none;
             }
             /* Mau khi nut loc dang duoc chon */
-            QPushButton:checked { background-color: #F2BFC1; color: white; }
+            QPushButton:checked { background-color: #F2BFC1; color: #D33E42; }
         """)
         btn.clicked.connect(lambda checked, b=btn: [
             app.btn_filter_3.setChecked(b==app.btn_filter_3), 
@@ -170,7 +170,7 @@ def create_template_screen(app):
     app.btn_confirm_template.setStyleSheet("""
         QPushButton {
             /* Mau nen nut CAPTURE (Hong nhat) */
-            background-color: #FADBDC; color: white;
+            background-color: #FADBDC; color: #D33E42;
             font-family: 'Cooper Black', 'Arial'; font-size: 38px; font-style: italic; font-weight: bold;
             border-radius: 25px;
         }

@@ -107,8 +107,8 @@ def get_all_prices():
 
 
 def format_price(amount):
-    """Format số tiền thành chuỗi VNĐ."""
-    return f"{amount:,}".replace(",", ".") + " VNĐ"
+    """Format số tiền thành chuỗi VND."""
+    return f"{amount:,}".replace(",", ".") + " VND"
 
 
 def generate_unique_code():

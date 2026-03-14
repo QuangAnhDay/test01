@@ -62,8 +62,8 @@ from src.ui.dialogs.dialogs import DownloadQRDialog
 # Import step screens
 from src.ui.screens.steps.step_1_package import create_package_screen
 from src.ui.screens.steps.step_2_payment import create_payment_screen
-from src.ui.screens.steps.step_3_liveview import create_liveview_screen
-from src.ui.screens.steps.step_4_capture import create_photo_select_screen
+# from src.ui.screens.steps.step_3_liveview import create_liveview_screen (Đã xóa)
+# from src.ui.screens.steps.step_4_capture import create_photo_select_screen (Đã xóa)
 from src.ui.screens.steps.step_6_template import create_template_screen
 from src.ui.screens.steps.step_8_finish import create_finish_screen
 from src.ui.screens.steps.step_1_custom_editor import create_custom_editor_screen
@@ -80,7 +80,7 @@ from src.services.image import ImageWorkflow
 
 
 # ==========================================
-# STYLESHEET TOÀN CỤC (Tập trung tại src/ui/styles.py)
+# STYLESHEET TOÀN CẦU (Tập trung tại src/ui/styles.py)
 # ==========================================
 from src.ui.styles import GLOBAL_STYLESHEET
 
@@ -96,6 +96,16 @@ class PhotoboothApp(QMainWindow):
 
         # --- FLOW CONTROLLER ---
         self.flow = FlowController()
+
+        # --- STACK INDICES ---
+        self.IDX_HOME = 0
+        self.IDX_PACKAGE = 1
+        self.IDX_PAYMENT = 2
+        self.IDX_LAYOUT_SELECT = 3
+        self.IDX_TEMPLATE = 4
+        self.IDX_FINISH = 5
+        self.IDX_ADMIN = 6
+        self.IDX_INTERACTIVE = 7
 
         # Shortcut references
         self.state = self.flow.state
@@ -177,21 +187,18 @@ class PhotoboothApp(QMainWindow):
              pass
             
         self.home_screen.start_clicked.connect(self.go_to_price_select)
-        self.home_screen.open_admin.connect(lambda: self.stacked.setCurrentIndex(8))
+        self.home_screen.open_admin.connect(lambda: self.stacked.setCurrentIndex(self.IDX_ADMIN))
         
-        self.stacked.addWidget(self.home_screen)                   # 0 - Welcome
-        self.showFullScreen()
-        self.stacked.addWidget(create_package_screen(self))       # 1 - Package
-        self.stacked.addWidget(create_payment_screen(self))       # 2 - Payment
-        self.stacked.addWidget(create_liveview_screen(self))      # 3 - LiveView
-        self._create_layout_select_screen()                       # 4 - Layout Select
-        self.stacked.addWidget(create_photo_select_screen(self))  # 5 - Photo Select
-        self.stacked.addWidget(create_template_screen(self))      # 6 - Template
-        self.stacked.addWidget(create_finish_screen(self))        # 7 - Finish
-        self.stacked.addWidget(create_custom_editor_screen(self)) # 8 - Admin Setup
-        self.stacked.addWidget(create_interactive_capture_screen(self)) # 9 - Interactive
+        self.stacked.addWidget(self.home_screen)                          # 0
+        self.stacked.addWidget(create_package_screen(self))              # 1
+        self.stacked.addWidget(create_payment_screen(self))              # 2
+        self._create_layout_select_screen()                              # 3
+        self.stacked.addWidget(create_template_screen(self))             # 4
+        self.stacked.addWidget(create_finish_screen(self))               # 5
+        self.stacked.addWidget(create_custom_editor_screen(self))        # 6
+        self.stacked.addWidget(create_interactive_capture_screen(self))  # 7
 
-        self.stacked.setCurrentIndex(0)
+        self.stacked.setCurrentIndex(self.IDX_HOME)
         
         # Connect camera handler to initial screen
         self.camera_handler.set_callback(self.on_frame_home)
@@ -201,13 +208,6 @@ class PhotoboothApp(QMainWindow):
         self.interactive_photos = []
 
         # --- TIMERS ---
-        self.countdown_timer = QTimer()
-        self.countdown_timer.timeout.connect(self.countdown_tick)
-
-        self.selection_timer = QTimer()
-        self.selection_timer.timeout.connect(self.on_selection_timer_tick)
-        self.selection_time_left = 0
-
         self.template_timer = QTimer()
         self.template_timer.timeout.connect(self.on_template_timer_tick)
         self.template_time_left = 0
@@ -220,12 +220,6 @@ class PhotoboothApp(QMainWindow):
         """Feed cho màn hình HomeScreen."""
         if hasattr(self, 'home_screen') and self.home_screen.camera_view:
             self.home_screen.camera_view.set_frame(qt_img)
-
-    def on_frame_liveview(self, qt_img):
-        """Feed cho màn hình LiveView (Step 3)."""
-        if hasattr(self, 'camera_label'):
-            scaled = qt_img.scaled(self.camera_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            self.camera_label.setPixmap(QPixmap.fromImage(scaled))
 
     def on_frame_interactive(self, qt_img):
         """Feed cho màn hình Interactive (Step 9)."""
@@ -294,7 +288,7 @@ class PhotoboothApp(QMainWindow):
         self.btn_layout_back = QPushButton("⬅️ GO BACK")
         self.btn_layout_back.setFixedSize(250, 70)
         self.btn_layout_back.setObjectName("OrangeBtn")
-        self.btn_layout_back.clicked.connect(lambda: self.stacked.setCurrentIndex(1))
+        self.btn_layout_back.clicked.connect(lambda: self.stacked.setCurrentIndex(self.IDX_PACKAGE))
         layout.addWidget(self.btn_layout_back, alignment=Qt.AlignCenter)
 
         self.stacked.addWidget(screen)
@@ -387,9 +381,21 @@ class PhotoboothApp(QMainWindow):
             btn.clicked.connect(lambda checked, p=path, b=btn: self.apply_template(p, b))
             self.template_btn_layout.addWidget(btn)
 
-        self.stacked.setCurrentIndex(6)
+        self.stacked.setCurrentIndex(self.IDX_TEMPLATE)
 
 
+
+    def select_layout_and_price(self, photo_count, layout_type):
+        """Xử lý khi chọn gói - Chuyển sang chọn Template trước khi chụp."""
+        self.selected_price_type = photo_count
+        self.selected_frame_count = photo_count
+        self.layout_type = layout_type
+        self.selected_template_path = None  # Reset template đã chọn
+        self.collage_image = None
+        self.merged_image = None
+        
+        # Chuyển sang màn hình chọn Template
+        self.go_to_template_select()
 
     def quick_select_group(self, group_filter="vertical"):
         """Tự động chọn layout mặc định cho nhóm và nhảy thẳng tới Template Select."""
@@ -412,32 +418,19 @@ class PhotoboothApp(QMainWindow):
             else:
                 target_layout = "2x2" # Fallback
                 slot_count = 4
-
         print(f"[DEBUG] Quick Selecting: {target_layout} ({slot_count} slots)")
         self.select_layout_and_price(slot_count, target_layout)
+
+        # Chuyển sang màn hình chọn Template
+        self.go_to_template_select()
 
     def go_to_price_select(self):
         """Chuyển đến màn hình chọn gói."""
         self.state = "PRICE_SELECT"
         if hasattr(self, 'stacked'):
-            self.stacked.setCurrentIndex(1)
+            self.stacked.setCurrentIndex(self.IDX_PACKAGE)
         # Ngắt feed camera khi ở màn hình chọn gói để tiết kiệm tài nguyên
         self.camera_handler.set_callback(None)
-
-    def select_layout_and_price(self, photo_count, layout_type):
-        """Xử lý khi chọn gói - Chuyển sang chọn Template trước khi chụp."""
-        self.selected_price_type = photo_count
-        self.selected_frame_count = photo_count
-        self.layout_type = layout_type
-        self.selected_template_path = None  # Reset template đã chọn
-        self.collage_image = None
-        self.merged_image = None
-        
-        # Chế độ CUSTOM_INTERFACE giờ đây sẽ hoạt động như một layout group 
-        # chứa các template đã được Admin định nghĩa sẵn.
-        
-        # Chuyển sang màn hình chọn Template
-        self.go_to_template_select()
 
     def on_qr_image_loaded(self, pixmap):
         scaled = pixmap.scaled(350, 350, Qt.KeepAspectRatio, Qt.SmoothTransformation)
@@ -471,195 +464,20 @@ class PhotoboothApp(QMainWindow):
 
     def cancel_payment_and_go_back(self):
         self.payment_handler.stop_checks()
-        self.stacked.setCurrentIndex(1)
+        self.stacked.setCurrentIndex(self.IDX_PACKAGE)
 
     def go_to_capture_screen(self):
-        self.state = "WAITING_CAPTURE"
-        self.captured_photos = []
-        self.selected_photo_indices = []
-        self.stacked.setCurrentIndex(3)
-        self.photo_count_label.setText(f"Photo: 0/{PHOTOS_TO_TAKE}")
-        self.status_label.setText("Ready?")
-        self.countdown_label.setText("")
-        self.btn_capture_start.show()
-
-
-    def start_capture_session(self):
-        self.state = "CAPTURING"
-        self.btn_capture_start.hide()
-        self.countdown_val = FIRST_PHOTO_DELAY
-        self.photo_count_label.setText(f"Ảnh: 0/{PHOTOS_TO_TAKE}")
-        self.status_label.setText("Get ready to pose!")
-        self.countdown_label.setText(str(self.countdown_val))
-        self.countdown_timer.start(1000)
+        """Chế độ chọn Template -> Chụp lấp đầy (Interactive)."""
+        self.state = "INTERACTIVE_CAPTURE"
+        self.stacked.setCurrentIndex(self.IDX_INTERACTIVE)
+        self.camera_handler.set_callback(self.on_frame_interactive, self.layout_type)
+        self.update_interactive_template_preview()
+        self.update_interactive_button_text()
         self.start_video_recording()
 
-    def countdown_tick(self):
-        self.countdown_val -= 1
-        if self.countdown_val > 0:
-            self.countdown_label.setText(str(self.countdown_val))
-        else:
-            self.countdown_label.setText("📸")
-            self.capture_photo()
 
-    def capture_photo(self):
-        # Nếu dùng DSLR, ra lệnh chụp trước khi lấy frame
-        cam_index = getattr(self.camera_handler, 'camera_index', None)
-        if isinstance(cam_index, str) and "127.0.0.1" in cam_index:
-            self.trigger_dslr_capture()
-            import time
-            time.sleep(0.4) # Chờ màn trập và stream cập nhật
+    # --- OLD FLOW METHODS REMOVED ---
 
-        # Cập nhật frame mới nhất từ CameraHandler
-        if self.camera_handler.thread and self.camera_handler.thread.last_cv_frame is not None:
-             self.current_frame = self.camera_handler.thread.last_cv_frame.copy()
-
-        if self.current_frame is not None:
-            self.captured_photos.append(self.current_frame.copy())
-            photo_num = len(self.captured_photos)
-            self.photo_count_label.setText(f"Ảnh: {photo_num}/{PHOTOS_TO_TAKE}")
-
-            if photo_num < PHOTOS_TO_TAKE:
-                self.countdown_val = BETWEEN_PHOTO_DELAY
-                self.countdown_label.setText(str(self.countdown_val))
-                self.status_label.setText(f"Photo {photo_num} taken! Continuing...")
-            else:
-                self.countdown_timer.stop()
-                self.countdown_label.setText("✓")
-                self.status_label.setText("Finished!")
-                QTimer.singleShot(1000, self.go_to_photo_select)
-
-    def go_to_photo_select(self):
-        self.state = "PHOTO_SELECT"
-        self.selected_photo_indices = []
-
-        self.photo_select_title.setText(
-            f"CHOOSE {self.selected_frame_count} PHOTOS FOR {self.selected_frame_count}-PHOTO FRAME")
-
-        if self.selected_frame_count == 2:
-            self.selection_time_left = 60
-        else:
-            self.selection_time_left = 120
-
-        self.update_timer_label()
-        self.selection_timer.start(1000)
-
-        # Clear grid cũ
-        for i in reversed(range(self.photo_grid_layout.count())):
-            widget = self.photo_grid_layout.itemAt(i).widget()
-            if widget:
-                widget.deleteLater()
-
-        self.photo_buttons = []
-        card_w, card_h = 230, 160
-        btn_w, btn_h = 210, 118
-
-        for idx, img in enumerate(self.captured_photos):
-            container = QWidget()
-            container.setObjectName("PhotoCard")
-            container.setFixedSize(card_w, card_h)
-
-            layout = QVBoxLayout(container)
-            layout.setContentsMargins(8, 8, 8, 8)
-            layout.setSpacing(3)
-
-            btn = QPushButton()
-            btn.setCheckable(True)
-            btn.setFixedSize(btn_w, btn_h)
-
-            thumb = cv2.resize(img, (btn_w, btn_h))
-            btn.setIcon(QIcon(convert_cv_qt(thumb)))
-            btn.setIconSize(QSize(btn_w, btn_h))
-            btn.setStyleSheet("border: none; border-radius: 5px;")
-            btn.clicked.connect(
-                lambda checked, i=idx, c=container, b=btn: self.toggle_photo(i, c, b))
-
-            layout.addWidget(btn)
-
-            lbl = QLabel(f"Photo {idx + 1}")
-            lbl.setAlignment(Qt.AlignCenter)
-            lbl.setStyleSheet("font-size: 14px; font-weight: bold;")
-            layout.addWidget(lbl)
-
-            row = idx // 5
-            col = idx % 5
-            self.photo_grid_layout.addWidget(container, row, col)
-            self.photo_buttons.append(btn)
-
-        self.btn_confirm_photos.setEnabled(False)
-        self.stacked.setCurrentIndex(5)
-
-    def on_selection_timer_tick(self):
-        self.selection_time_left -= 1
-        self.update_timer_label()
-        if self.selection_time_left <= 0:
-            self.selection_timer.stop()
-            self.auto_confirm_selection()
-
-    def update_timer_label(self):
-        minutes = self.selection_time_left // 60
-        seconds = self.selection_time_left % 60
-        self.lbl_selection_timer.setText(f"Time remaining: {minutes:02d}:{seconds:02d}")
-        if self.selection_time_left < 10:
-            self.lbl_selection_timer.setStyleSheet("font-size: 24px; color: #ff6b6b; font-weight: bold;")
-        else:
-            self.lbl_selection_timer.setStyleSheet("font-size: 24px; color: #ffd700; font-weight: bold;")
-
-    def auto_confirm_selection(self):
-        QMessageBox.warning(self, "Time's up",
-                            "Time is up! The system will automatically select photos for you.")
-        if len(self.selected_photo_indices) < self.selected_frame_count:
-            needed = self.selected_frame_count - len(self.selected_photo_indices)
-            for i in range(len(self.captured_photos)):
-                if needed <= 0:
-                    break
-                if i not in self.selected_photo_indices:
-                    self.selected_photo_indices.append(i)
-                    needed -= 1
-
-        if len(self.selected_photo_indices) > self.selected_frame_count:
-            self.selected_photo_indices = self.selected_photo_indices[:self.selected_frame_count]
-
-        self.confirm_photo_selection()
-
-    def toggle_photo(self, index, container, button):
-        if index in self.selected_photo_indices:
-            self.selected_photo_indices.remove(index)
-            container.setStyleSheet("""
-                QWidget#PhotoCard {
-                    background-color: #16213e; border: 2px solid #0f3460;
-                    border-radius: 10px;
-                }
-            """)
-            button.setChecked(False)
-        else:
-            if len(self.selected_photo_indices) >= self.selected_frame_count:
-                button.setChecked(False)
-                QMessageBox.information(self, "Notification",
-                                        f"You can only select {self.selected_frame_count} photos!")
-                return
-            self.selected_photo_indices.append(index)
-            container.setStyleSheet("""
-                QWidget#PhotoCard {
-                    background-color: #16213e; border: 5px solid #ffd700;
-                    border-radius: 10px;
-                }
-            """)
-            button.setChecked(True)
-
-        self.btn_confirm_photos.setEnabled(
-            len(self.selected_photo_indices) == self.selected_frame_count)
-
-    def confirm_photo_selection(self):
-        self.selection_timer.stop()
-        selected_imgs = [self.captured_photos[i] for i in sorted(self.selected_photo_indices)]
-        if not selected_imgs:
-            QMessageBox.warning(self, "Error", "No photos selected!")
-            return
-
-        self.collage_image = create_collage(selected_imgs, self.layout_type)
-        self.merged_image = self.collage_image.copy()
-        self.go_to_template_select()
 
     def go_to_template_select(self):
         self.state = "TEMPLATE_SELECT"
@@ -719,7 +537,7 @@ class PhotoboothApp(QMainWindow):
             btn.clicked.connect(lambda checked, p=path, b=btn: self.apply_template(p, b))
             self.template_btn_layout.addWidget(btn)
 
-        self.stacked.setCurrentIndex(6)
+        self.stacked.setCurrentIndex(self.IDX_TEMPLATE)
 
         # Cập nhật trạng thái nút lọc
         if hasattr(self, 'btn_filter_3'):
@@ -913,7 +731,7 @@ class PhotoboothApp(QMainWindow):
             if getattr(self, 'is_free_mode', False):
                 # Bản Free: Vào giao diện chụp lấp đầy ngay
                 self.state = "INTERACTIVE_CAPTURE"
-                self.stacked.setCurrentIndex(9)
+                self.stacked.setCurrentIndex(self.IDX_INTERACTIVE)
                 self.camera_handler.set_callback(self.on_frame_interactive, self.layout_type)
                 self.update_interactive_template_preview()
                 self.update_interactive_button_text()
@@ -955,7 +773,7 @@ class PhotoboothApp(QMainWindow):
         self.start_casso_check()
 
         self.state = "QR_PAYMENT"
-        self.stacked.setCurrentIndex(2)
+        self.stacked.setCurrentIndex(self.IDX_PAYMENT)
 
     # ==========================================
     # LOGIC CHỤP ẢNH TƯƠNG TÁC (STEP 9)
@@ -1283,7 +1101,7 @@ class PhotoboothApp(QMainWindow):
         elif event.key() == Qt.Key_F2:
             # Mở trình thiết kế layout (chỉ dành cho Admin)
             QMessageBox.information(self, "Admin Mode", "Opening Layout Designer...")
-            self.stacked.setCurrentIndex(8)
+            self.stacked.setCurrentIndex(self.IDX_ADMIN)
             if hasattr(self, 'custom_editor_step'):
                 self.custom_editor_step.update_preview()
 

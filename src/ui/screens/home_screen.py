@@ -1,6 +1,11 @@
 import os
 import sys
 
+# === PATH FIX: Cho phép chạy trực tiếp ===
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) or '.')
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
+
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QFrame
@@ -232,10 +237,7 @@ if __name__ == "__main__":
     from PyQt5.QtWidgets import QApplication
     from PyQt5.QtCore import QSharedMemory
 
-    # Thêm project root vào sys.path để chạy độc lập
-    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
-    if project_root not in sys.path:
-        sys.path.insert(0, project_root)
+    # Project root đã được thiết lập ở đầu file
 
     instance_lock = QSharedMemory("photobooth_v3_single_instance_home")
     if instance_lock.attach() or not instance_lock.create(1):

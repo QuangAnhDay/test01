@@ -2,7 +2,7 @@ import os
 import sys
 
 # === PATH FIX: Cho phép chạy trực tiếp ===
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
@@ -39,25 +39,26 @@ def create_package_screen(app):
     # Styles
     price_btn_style = """
         QPushButton {
-            /* Mau nen nut gia tien (Ma do cam) */
-            background-color: #F15252; 
+            /* Mau nen nut gia tien (Giong nut START) */
+            background-color: #FDCFCF; 
             /* Mau chu nut gia tien */
-            color: white; 
+            color: #D33E42; 
             border: none;
-            border-radius: 15px; 
-            font-size: 40px; 
+            border-radius: 24px; 
+            font-size: 44px; 
             font-weight: bold;
-            padding: 20px 40px;
+            padding: 10px 40px;
+            min-height: 100px;
             min-width: 400px;
             font-family: 'Cooper Black', 'Segoe UI', Arial, sans-serif;
         }
         QPushButton:hover {
             /* Mau nut khi di chuot qua */
-            background-color: #FF6B6B;
+            background-color: #F3CFD1;
         }
         QPushButton:pressed {
-            /* Mau nut khi nhan giu */
-            background-color: #D33E42;
+            /* Mau nut khi nhan xuong */
+            background-color: #EAB9BC;
         }
     """
     
@@ -113,7 +114,7 @@ def create_package_screen(app):
         # Placeholder nếu chưa có ảnh
         btn_img_1.setText("No image (package_1.png)")
         btn_img_1.setFixedSize(450, 450)
-        btn_img_1.setStyleSheet("background-color: #d1d8e0; border-radius: 20px; color: black; font-size: 20px;")
+        btn_img_1.setStyleSheet("background-color: #d1d8e0; border-radius: 20px; color: #D33E42; font-size: 20px;")
 
     # Nút giá 1
     price_val_1 = get_price_by_layout("4x1")
@@ -156,7 +157,7 @@ def create_package_screen(app):
     else:
         btn_img_2.setText("No image (package_2.png)")
         btn_img_2.setFixedSize(450, 450)
-        btn_img_2.setStyleSheet("background-color: #d1d8e0; border-radius: 20px; color: black; font-size: 20px;")
+        btn_img_2.setStyleSheet("background-color: #d1d8e0; border-radius: 20px; color: #D33E42; font-size: 20px;")
 
     # Nút giá 2
     price_val_2 = get_price_by_layout("2x2")

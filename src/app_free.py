@@ -49,18 +49,13 @@ class FreePhotobooth(PhotoboothApp):
         print("[FREE] Skipping payment...")
         self.state = "PACKAGE_SELECT"
         if hasattr(self, 'stacked'):
-            self.stacked.setCurrentIndex(1)
+            self.stacked.setCurrentIndex(self.IDX_PACKAGE)
         self.camera_handler.set_callback(None)
-
-    def start_capture_session(self):
-        """Bắt đầu chụp - Bật LiveView feed."""
-        super().start_capture_session()
-        self.camera_handler.set_callback(self.on_frame_liveview, self.layout_type)
 
     def go_to_capture_screen(self):
         """Màn hình chụp Interactive."""
         self.state = "INTERACTIVE_CAPTURE"
-        self.stacked.setCurrentIndex(9)
+        self.stacked.setCurrentIndex(self.IDX_INTERACTIVE)
         self.camera_handler.set_callback(self.on_frame_interactive, self.layout_type)
         self.update_interactive_template_preview()
         self.update_interactive_button_text()
