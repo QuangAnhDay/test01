@@ -884,11 +884,78 @@ class PhotoboothApp(QMainWindow):
             self.cam_overlay_left.hide()
             self.cam_overlay_right.hide()
 
-        # Lấy frame từ CameraHandler
+        # =========== LOGIC CHỤP BẰNG CameraControlCmd.exe ===========
+        import subprocess
+        import os
+        import time
+        from PyQt5.QtWidgets import QApplication
+
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        picture_dir = os.path.join(base_dir, "picture")
+        if not os.path.exists(picture_dir):
+            os.makedirs(picture_dir, exist_ok=True)
+            
+        idx = getattr(self, 'current_slot_index', 0)
+        img_filename = f"slot_{int(time.time())}_{idx}.jpg"
+        img_path = os.path.join(picture_dir, img_filename)
+        
+        # Cho phép UI cập nhật (ẩn overlays, tắt đếm ngược) trước khi block
+        QApplication.processEvents()
+
         frame = None
-        if self.camera_handler.thread and self.camera_handler.thread.last_cv_frame is not None:
-            print("[DEBUG] Getting frame from CameraThread...")
-            frame = self.camera_handler.thread.last_cv_frame.copy()
+        try:
+            # Ưu tiên tìm CameraControlCmd.exe trong thư mục con src/digiCamControl
+            src_dir = os.path.dirname(os.path.abspath(__file__))
+            cmd_path = os.path.join(src_dir, "digiCamControl", "CameraControlCmd.exe")
+            
+            # Nếu người dùng không tạo folder mà ném luôn vào src hoặc đã có trong PATH thì dùng lệnh tắt
+            if not os.path.exists(cmd_path):
+                cmd_path = "CameraControlCmd.exe"
+
+            print(f"[DSLR] Dang goi {cmd_path} de chup va luu tai: {img_path}")
+            # Chạy tiến trình chụp ảnh cơ học (giấu cửa sổ terminal)
+            creation_flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0x08000000) if os.name == 'nt' else 0
+            subprocess.run(
+                [cmd_path, "/capture", "/filename", img_path], 
+                check=True, 
+                timeout=15,
+                creationflags=creation_flags
+            )
+
+            # Đợi một chút để OS ghi file hoàn tất nếu cần
+            time.sleep(0.1)
+
+            # Đọc lại ảnh gốc đã chụp thay vì lấy từ CameraThread
+            if os.path.exists(img_path):
+                print(f"[DSLR] Da luu anh goc thanh cong: {img_path}")
+                frame = cv2.imread(img_path)
+                
+                # Dong bo xoay/lat theo luong video hien tai de hop voi Layout
+                if hasattr(self, 'camera_handler') and self.camera_handler.thread:
+                    rot = getattr(self.camera_handler.thread, 'rotation', 0)
+                    if rot == 90:
+                        frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+                    elif rot == 180:
+                        frame = cv2.rotate(frame, cv2.ROTATE_180)
+                    elif rot == 270:
+                        frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+                    frame = cv2.flip(frame, 1) # Lat guong cho match voi view
+            else:
+                print("[DSLR ERROR] Khong tim thay file anh sau khi chup!")
+
+        except FileNotFoundError:
+            print("[DSLR ERROR] Khong tim thay CameraControlCmd.exe (chưa copy vào máy hoặc chưa có trong PATH)")
+        except subprocess.TimeoutExpired:
+            print("[DSLR ERROR] Loi timeout khi chup anh!")
+        except Exception as e:
+            print(f"[DSLR ERROR] Loi khi chup co hoc: {e}")
+
+        # Fallback: neu chup co hoc loi, dung frame luong video de chuong trinh van tiep tuc xuong tru
+        if frame is None:
+            print("[DSLR WARN] Chuyen sang chup bang luong video fallback...")
+            if self.camera_handler.thread and self.camera_handler.thread.last_cv_frame is not None:
+                print("[DEBUG] Getting frame from CameraThread...")
+                frame = self.camera_handler.thread.last_cv_frame.copy()
         
         if frame is not None:
             # Lưu ảnh vào danh sách
@@ -1069,6 +1136,22 @@ class PhotoboothApp(QMainWindow):
         if hasattr(self, 'camera_handler'):
             self.camera_handler.start()
             self.camera_handler.set_callback(self.on_frame_home)
+
+        # Xóa các file ảnh gốc DSLR trong thư mục picture (sau khi hoàn tất/upload)
+        import os
+        import glob
+        try:
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            picture_dir = os.path.join(base_dir, "picture")
+            if os.path.exists(picture_dir):
+                for f in glob.glob(os.path.join(picture_dir, "*.jpg")):
+                    try:
+                        os.remove(f)
+                    except Exception as e:
+                        print(f"[CLEANUP] Loi xoa anh goc {f}: {e}")
+                print("[CLEANUP] Da xoa tat ca anh goc trong thu muc picture.")
+        except Exception as e:
+            print(f"[CLEANUP] Loi he thong khi xoa anh goc: {e}")
 
     def open_camera_setup(self):
         """Mở cửa sổ thiết lập Camera (phím F1)."""

@@ -39,3 +39,6 @@ stderr.txt
 out.log
 full_log*.txt
 test_out.txt
+
+# External dependencies (Camera Control)
+src/digicamControl/
