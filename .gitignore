@@ -22,11 +22,11 @@ config/app_config.json
 Thumbs.db
 
 # Output and temporary files
-output/
-*.jpg
-*.png
-custom_layouts.json
-config/custom_layouts.json
+# output/
+# *.jpg
+# *.png
+# custom_layouts.json
+# config/custom_layouts.json
 
 # Logs & Debug artifacts
 logs/

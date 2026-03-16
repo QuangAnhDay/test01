@@ -206,14 +206,15 @@ class CameraSetupApp(QMainWindow):
         use_dshow = self.check_dshow.isChecked()
         use_compat = self.check_compat.isChecked()
 
-        # Disable các nút trong khi đang mở
-        self.btn_use_dslr.setEnabled(False)
-        self.combo_cam.setEnabled(False)
+        # Cho phép người dùng chọn lại nếu lỗi, không block UI
         if self.camera_handler:
             # Ra lệnh cho handler trung tâm khởi động lại với cấu hình mới
             # và đặt callback nhận ảnh duy nhất cho màn hình Setup này
             self.camera_handler.set_callback(self.on_frame_from_thread)
             self.camera_handler.restart_with_config(index, 1280, 720, use_dshow, use_compat)
+            # Kết nối sự kiện báo lỗi nếu có
+            if self.camera_handler.thread:
+                self.camera_handler.thread.error_occurred.connect(self.on_camera_error)
         else:
             # Fallback nếu chạy độc lập
             from src.services.camera.camera_thread import CameraThread
@@ -227,10 +228,8 @@ class CameraSetupApp(QMainWindow):
 
     def on_frame_from_thread(self, q_img):
         """Callback khi có frame từ thread camera (Loại QImage)."""
-        # Re-enable UI nếu đây là frame đầu tiên
-        if not self.combo_cam.isEnabled():
-            self.combo_cam.setEnabled(True)
-            self.btn_use_dslr.setEnabled(True)
+        # Cập nhật UI nếu đây là frame đầu tiên (chuyển trạng thái)
+        if "active" not in self.status_label.text():
             self.status_label.setText("Status: ✅ Camera active")
 
         # Hiển thị lên UI (Signal đã là QImage và đã được lật/xoay sẵn trong thread)
